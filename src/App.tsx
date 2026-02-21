@@ -17,7 +17,7 @@ type EnvStatus = 'Attivo' | 'Inattivo' | 'Manutenzione';
 type BugSeverity = 'Critical' | 'High' | 'Medium' | 'Low';
 type BugStatus = 'Aperto' | 'In corso' | 'Risolto' | 'Chiuso';
 type LearningCategory = 'Corso' | 'Certificazione' | 'Articolo' | 'Video' | 'Libro' | 'Altro';
-type ViewName = 'dashboard' | 'tasks' | 'timer' | 'changes' | 'notes' | 'goals' | 'projects' | 'search' | 'history' | 'report' | 'snippets' | 'bookmarks' | 'backlog' | 'guide' | 'contacts' | 'environments' | 'retros' | 'bugs' | 'learning' | 'checklists' | 'analyzer' | 'fdhub';
+type ViewName = 'dashboard' | 'tasks' | 'timer' | 'changes' | 'notes' | 'goals' | 'projects' | 'search' | 'history' | 'report' | 'snippets' | 'bookmarks' | 'backlog' | 'guide' | 'contacts' | 'environments' | 'retros' | 'bugs' | 'learning' | 'checklists' | 'analyzer' | 'fdhub' | 'sharepoint';
 
 type Task = { id: number; title: string; description: string; plannedMinutes: number; priority: Priority; status: TaskStatus; scheduledDate: string; createdAt: string; projectId?: number | null };
 type Session = { id: number; taskId: number; taskTitle: string; startedAt: string; endedAt?: string; durationMinutes?: number; note?: string };
@@ -53,6 +53,17 @@ type FdhubRepo = { id: number; name: string; description: string; appType: strin
 type FdhubCommit = { id: number; repoId: number; message: string; tag: string; fileName: string; filePath: string; fileSize: number; summaryJson: string; healthScore: number; screenCount: number; controlCount: number; formulaCount: number; datasourceCount: number; issueCount: number; createdAt: string };
 type FdhubRepoStats = { totalCommits: number; latestCommit: FdhubCommit | null; firstCommit: FdhubCommit | null };
 type Attachment = { id: number; entityType: string; entityId: number; fileName: string; filePath: string; fileSize: number; mimeType: string; createdAt: string };
+
+/* ═══ SharePoint types ═══ */
+type SpConfig = { clientId: string; tenantId: string; siteUrl: string };
+type SpUser = { name: string; email: string };
+type SpSite = { id: string; name: string; url: string; description: string };
+type SpList = { id: string; name: string; description: string; template: string; lastModified: string; hidden: boolean };
+type SpListItem = { id: string; fields: Record<string, unknown>; createdAt: string; modifiedAt: string };
+type SpColumn = { name: string; displayName: string; type: string; required: boolean; choices: string[] };
+type SpDrive = { id: string; name: string; description: string; webUrl: string; totalSize: number; usedSize: number };
+type SpDriveItem = { id: string; name: string; isFolder: boolean; size: number; mimeType: string; webUrl: string; downloadUrl: string; lastModified: string; childCount: number; createdBy: string };
+type SpTab = 'lists' | 'documents' | 'config';
 
 /* ═══ Power Apps Analyzer types ═══ */
 type MsappFormulaComplexity = { length: number; nestingDepth: number; functionCount: number; uniqueFunctions: number; ifCount: number; semicolonCount?: number; score: number };
@@ -214,6 +225,27 @@ type FlowdeskApi = {
   listAttachments: (entityType: string, entityId: number) => Promise<Attachment[]>;
   deleteAttachment: (id: number) => Promise<{ ok: boolean }>;
   openAttachment: (filePath: string) => Promise<{ ok: boolean }>;
+  /* SharePoint */
+  spGetConfig: () => Promise<SpConfig | null>;
+  spSaveConfig: (cfg: SpConfig) => Promise<{ ok: boolean }>;
+  spConnect: () => Promise<{ ok: boolean; user: SpUser }>;
+  spDisconnect: () => Promise<{ ok: boolean }>;
+  spIsConnected: () => Promise<boolean>;
+  spGetUser: () => Promise<SpUser | null>;
+  spSearchSites: (query: string) => Promise<SpSite[]>;
+  spGetSiteId: (siteUrl: string) => Promise<string>;
+  spGetLists: (siteId: string) => Promise<SpList[]>;
+  spGetListItems: (siteId: string, listId: string, top?: number, skip?: number) => Promise<{ items: SpListItem[]; hasMore: boolean }>;
+  spGetListColumns: (siteId: string, listId: string) => Promise<SpColumn[]>;
+  spCreateListItem: (siteId: string, listId: string, fields: Record<string, unknown>) => Promise<{ id: string; fields: Record<string, unknown> }>;
+  spUpdateListItem: (siteId: string, listId: string, itemId: string, fields: Record<string, unknown>) => Promise<{ ok: boolean }>;
+  spDeleteListItem: (siteId: string, listId: string, itemId: string) => Promise<{ ok: boolean }>;
+  spGetDrives: (siteId: string) => Promise<SpDrive[]>;
+  spGetDriveItems: (siteId: string, driveId: string, folderId?: string) => Promise<SpDriveItem[]>;
+  spDownloadFile: (siteId: string, driveId: string, itemId: string, fileName: string) => Promise<{ ok: boolean; path?: string }>;
+  spUploadFile: (siteId: string, driveId: string, folderId?: string) => Promise<{ ok: boolean; id?: string; name?: string; webUrl?: string; size?: number } | null>;
+  spDeleteItem: (siteId: string, driveId: string, itemId: string) => Promise<{ ok: boolean }>;
+  spCreateFolder: (siteId: string, driveId: string, folderId: string | undefined, folderName: string) => Promise<{ ok: boolean; id?: string; name?: string }>;
 };
 
 declare global { interface Window { flowdesk?: FlowdeskApi } }
@@ -258,6 +290,7 @@ const NAV: { id: ViewName; icon: string; label: string }[] = [
   // ── Analisi ──
   { id: 'analyzer', icon: 'analytics', label: 'App Analyzer' },
   { id: 'fdhub', icon: 'hub', label: 'FDHub' },
+  { id: 'sharepoint', icon: 'share', label: 'SharePoint' },
   // ── Revisione ──
   { id: 'retros', icon: 'psychology', label: 'Retrospettive' },
   { id: 'history', icon: 'calendar_month', label: 'Storico' },
@@ -546,6 +579,29 @@ function App() {
   const [msappSecond, setMsappSecond] = useState<MsappParsed | null>(null);
   const [msappExpandedScreen, setMsappExpandedScreen] = useState<string | null>(null);
   const [msappExpandedFormula, setMsappExpandedFormula] = useState<number | null>(null);
+
+  /* ── SharePoint ── */
+  const [spTab, setSpTab] = useState<SpTab>('config');
+  const [spCfg, setSpCfg] = useState<SpConfig>({ clientId: '', tenantId: '', siteUrl: '' });
+  const [spConnected, setSpConnected] = useState(false);
+  const [spUser, setSpUser] = useState<SpUser | null>(null);
+  const [spLoading, setSpLoading] = useState(false);
+  const [spError, setSpError] = useState('');
+  const [spSiteId, setSpSiteId] = useState('');
+  // Lists
+  const [spLists, setSpLists] = useState<SpList[]>([]);
+  const [spSelectedList, setSpSelectedList] = useState<SpList | null>(null);
+  const [spListItems, setSpListItems] = useState<SpListItem[]>([]);
+  const [spListColumns, setSpListColumns] = useState<SpColumn[]>([]);
+  const [spNewItemFields, setSpNewItemFields] = useState<Record<string, string>>({});
+  const [spEditItemId, setSpEditItemId] = useState<string | null>(null);
+  const [spEditFields, setSpEditFields] = useState<Record<string, string>>({});
+  // Documents
+  const [spDrives, setSpDrives] = useState<SpDrive[]>([]);
+  const [spSelectedDrive, setSpSelectedDrive] = useState<SpDrive | null>(null);
+  const [spDriveItems, setSpDriveItems] = useState<SpDriveItem[]>([]);
+  const [spFolderStack, setSpFolderStack] = useState<{ id: string; name: string }[]>([]);
+  const [spNewFolderName, setSpNewFolderName] = useState('');
 
   /* ── Reset Data ── */
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
@@ -4316,6 +4372,431 @@ function App() {
               </div>
             </div>
           )}
+
+          {/* ═══════ SHAREPOINT ═══════ */}
+          {view === 'sharepoint' && (() => {
+            const spLoadConfig = async () => {
+              if (!api) return;
+              const cfg = await api.spGetConfig();
+              if (cfg) { setSpCfg(cfg); }
+              const connected = await api.spIsConnected();
+              setSpConnected(connected);
+              if (connected) {
+                const u = await api.spGetUser();
+                if (u) setSpUser(u);
+              }
+            };
+            const spDoConnect = async () => {
+              if (!api) return;
+              setSpLoading(true); setSpError('');
+              try {
+                if (!spCfg.clientId || !spCfg.tenantId) { setSpError('Inserisci Client ID e Tenant ID.'); setSpLoading(false); return; }
+                await api.spSaveConfig(spCfg);
+                const res = await api.spConnect();
+                setSpConnected(true);
+                setSpUser(res.user);
+                if (spCfg.siteUrl) {
+                  try {
+                    const siteId = await api.spGetSiteId(spCfg.siteUrl);
+                    setSpSiteId(siteId);
+                  } catch (e: unknown) { setSpError('Sito non trovato: ' + ((e instanceof Error) ? e.message : String(e))); }
+                }
+                setSpTab('lists');
+              } catch (e: unknown) { setSpError((e instanceof Error) ? e.message : String(e)); }
+              finally { setSpLoading(false); }
+            };
+            const spDoDisconnect = async () => {
+              if (!api) return;
+              await api.spDisconnect();
+              setSpConnected(false); setSpUser(null); setSpSiteId(''); setSpLists([]); setSpDrives([]);
+              setSpSelectedList(null); setSpSelectedDrive(null);
+            };
+            const spLoadLists = async () => {
+              if (!api || !spSiteId) return;
+              setSpLoading(true);
+              try { setSpLists(await api.spGetLists(spSiteId)); } catch (e: unknown) { setSpError((e instanceof Error) ? e.message : String(e)); }
+              finally { setSpLoading(false); }
+            };
+            const spSelectList = async (list: SpList) => {
+              if (!api || !spSiteId) return;
+              setSpSelectedList(list); setSpLoading(true); setSpEditItemId(null);
+              try {
+                const [cols, data] = await Promise.all([
+                  api.spGetListColumns(spSiteId, list.id),
+                  api.spGetListItems(spSiteId, list.id),
+                ]);
+                setSpListColumns(cols);
+                setSpListItems(data.items);
+                const empty: Record<string, string> = {};
+                cols.forEach(c => { empty[c.name] = ''; });
+                setSpNewItemFields(empty);
+              } catch (e: unknown) { setSpError((e instanceof Error) ? e.message : String(e)); }
+              finally { setSpLoading(false); }
+            };
+            const spAddItem = async (ev: FormEvent) => {
+              ev.preventDefault();
+              if (!api || !spSiteId || !spSelectedList) return;
+              setSpLoading(true);
+              try {
+                const fields: Record<string, unknown> = {};
+                for (const [k, v] of Object.entries(spNewItemFields)) { if (v) fields[k] = v; }
+                await api.spCreateListItem(spSiteId, spSelectedList.id, fields);
+                const data = await api.spGetListItems(spSiteId, spSelectedList.id);
+                setSpListItems(data.items);
+                const empty: Record<string, string> = {};
+                spListColumns.forEach(c => { empty[c.name] = ''; });
+                setSpNewItemFields(empty);
+              } catch (e: unknown) { setSpError((e instanceof Error) ? e.message : String(e)); }
+              finally { setSpLoading(false); }
+            };
+            const spSaveItem = async () => {
+              if (!api || !spSiteId || !spSelectedList || !spEditItemId) return;
+              setSpLoading(true);
+              try {
+                const fields: Record<string, unknown> = {};
+                for (const [k, v] of Object.entries(spEditFields)) { fields[k] = v; }
+                await api.spUpdateListItem(spSiteId, spSelectedList.id, spEditItemId, fields);
+                const data = await api.spGetListItems(spSiteId, spSelectedList.id);
+                setSpListItems(data.items);
+                setSpEditItemId(null);
+              } catch (e: unknown) { setSpError((e instanceof Error) ? e.message : String(e)); }
+              finally { setSpLoading(false); }
+            };
+            const spRemoveItem = async (itemId: string) => {
+              if (!api || !spSiteId || !spSelectedList) return;
+              if (!confirm('Eliminare questo elemento?')) return;
+              try {
+                await api.spDeleteListItem(spSiteId, spSelectedList.id, itemId);
+                setSpListItems(prev => prev.filter(i => i.id !== itemId));
+              } catch (e: unknown) { setSpError((e instanceof Error) ? e.message : String(e)); }
+            };
+            const spLoadDrives = async () => {
+              if (!api || !spSiteId) return;
+              setSpLoading(true);
+              try { setSpDrives(await api.spGetDrives(spSiteId)); } catch (e: unknown) { setSpError((e instanceof Error) ? e.message : String(e)); }
+              finally { setSpLoading(false); }
+            };
+            const spSelectDrive = async (drive: SpDrive) => {
+              if (!api || !spSiteId) return;
+              setSpSelectedDrive(drive); setSpFolderStack([]); setSpLoading(true);
+              try { setSpDriveItems(await api.spGetDriveItems(spSiteId, drive.id)); } catch (e: unknown) { setSpError((e instanceof Error) ? e.message : String(e)); }
+              finally { setSpLoading(false); }
+            };
+            const spOpenFolder = async (item: SpDriveItem) => {
+              if (!api || !spSiteId || !spSelectedDrive) return;
+              setSpLoading(true);
+              try {
+                setSpFolderStack(prev => [...prev, { id: item.id, name: item.name }]);
+                setSpDriveItems(await api.spGetDriveItems(spSiteId, spSelectedDrive.id, item.id));
+              } catch (e: unknown) { setSpError((e instanceof Error) ? e.message : String(e)); }
+              finally { setSpLoading(false); }
+            };
+            const spGoBack = async () => {
+              if (!api || !spSiteId || !spSelectedDrive) return;
+              setSpLoading(true);
+              try {
+                const newStack = [...spFolderStack];
+                newStack.pop();
+                setSpFolderStack(newStack);
+                const parentId = newStack.length > 0 ? newStack[newStack.length - 1].id : undefined;
+                setSpDriveItems(await api.spGetDriveItems(spSiteId, spSelectedDrive.id, parentId));
+              } catch (e: unknown) { setSpError((e instanceof Error) ? e.message : String(e)); }
+              finally { setSpLoading(false); }
+            };
+            const spDoUpload = async () => {
+              if (!api || !spSiteId || !spSelectedDrive) return;
+              setSpLoading(true);
+              try {
+                const folderId = spFolderStack.length > 0 ? spFolderStack[spFolderStack.length - 1].id : undefined;
+                const res = await api.spUploadFile(spSiteId, spSelectedDrive.id, folderId);
+                if (res && res.ok) {
+                  setSpDriveItems(await api.spGetDriveItems(spSiteId, spSelectedDrive.id, folderId));
+                }
+              } catch (e: unknown) { setSpError((e instanceof Error) ? e.message : String(e)); }
+              finally { setSpLoading(false); }
+            };
+            const spDoCreateFolder = async () => {
+              if (!api || !spSiteId || !spSelectedDrive || !spNewFolderName.trim()) return;
+              setSpLoading(true);
+              try {
+                const folderId = spFolderStack.length > 0 ? spFolderStack[spFolderStack.length - 1].id : undefined;
+                await api.spCreateFolder(spSiteId, spSelectedDrive.id, folderId, spNewFolderName.trim());
+                setSpNewFolderName('');
+                setSpDriveItems(await api.spGetDriveItems(spSiteId, spSelectedDrive.id, folderId));
+              } catch (e: unknown) { setSpError((e instanceof Error) ? e.message : String(e)); }
+              finally { setSpLoading(false); }
+            };
+            const spDoDeleteItem = async (itemId: string) => {
+              if (!api || !spSiteId || !spSelectedDrive) return;
+              if (!confirm('Eliminare questo file/cartella?')) return;
+              try {
+                await api.spDeleteItem(spSiteId, spSelectedDrive.id, itemId);
+                setSpDriveItems(prev => prev.filter(i => i.id !== itemId));
+              } catch (e: unknown) { setSpError((e instanceof Error) ? e.message : String(e)); }
+            };
+            const fmtBytes = (b: number) => {
+              if (b < 1024) return b + ' B';
+              if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+              if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
+              return (b / 1073741824).toFixed(2) + ' GB';
+            };
+
+            return (
+            <div className="view">
+              <div className="view-header">
+                <div>
+                  <h2 className="view-title">{mi('share')} SharePoint</h2>
+                  <p className="view-sub">Connettiti a SharePoint per gestire liste e documenti tramite Microsoft Graph API</p>
+                </div>
+                {spConnected && spUser && (
+                  <div className="sp-user-badge">
+                    {mi('person')} <strong>{spUser.name}</strong> <span className="muted">({spUser.email})</span>
+                    <button className="btn-xs btn-ghost ml-12" onClick={spDoDisconnect}>{mi('logout')} Disconnetti</button>
+                  </div>
+                )}
+              </div>
+
+              {spError && <div className="alert alert-error mb-16">{mi('error')} {spError} <button className="btn-xs btn-ghost" onClick={() => setSpError('')}>{mi('close')}</button></div>}
+
+              {/* Tabs */}
+              <div className="sp-tabs mb-16">
+                <button className={`sp-tab${spTab === 'config' ? ' active' : ''}`} onClick={() => setSpTab('config')}>{mi('settings')} Configurazione</button>
+                <button className={`sp-tab${spTab === 'lists' ? ' active' : ''}`} disabled={!spConnected} onClick={() => { setSpTab('lists'); if (spSiteId && spLists.length === 0) spLoadLists(); }}>{mi('list')} Liste</button>
+                <button className={`sp-tab${spTab === 'documents' ? ' active' : ''}`} disabled={!spConnected} onClick={() => { setSpTab('documents'); if (spSiteId && spDrives.length === 0) spLoadDrives(); }}>{mi('folder')} Documenti</button>
+              </div>
+
+              {/* Config Tab */}
+              {spTab === 'config' && (
+                <div className="card sp-config-card">
+                  <h3 className="mb-12">{mi('key')} Configurazione Azure AD</h3>
+                  <p className="muted mb-16">Inserisci i dati dell'App Registration creata su Azure Portal (Microsoft Entra ID).</p>
+                  <div className="form-group">
+                    <label>Client ID (Application ID)</label>
+                    <input value={spCfg.clientId} onChange={e => setSpCfg({ ...spCfg, clientId: e.target.value })} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                  </div>
+                  <div className="form-group">
+                    <label>Tenant ID (Directory ID)</label>
+                    <input value={spCfg.tenantId} onChange={e => setSpCfg({ ...spCfg, tenantId: e.target.value })} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                  </div>
+                  <div className="form-group">
+                    <label>SharePoint Site URL</label>
+                    <input value={spCfg.siteUrl} onChange={e => setSpCfg({ ...spCfg, siteUrl: e.target.value })} placeholder="https://contoso.sharepoint.com/sites/MySite" />
+                  </div>
+                  <div className="form-row mt-16">
+                    {!spConnected ? (
+                      <button className="btn-primary" onClick={spDoConnect} disabled={spLoading}>
+                        {spLoading ? mi('hourglass_empty') : mi('login')} {spLoading ? 'Connessione...' : 'Connetti a SharePoint'}
+                      </button>
+                    ) : (
+                      <button className="btn-secondary" onClick={spDoDisconnect}>{mi('logout')} Disconnetti</button>
+                    )}
+                    <button className="btn-ghost" onClick={spLoadConfig}>{mi('refresh')} Ricarica config</button>
+                  </div>
+
+                  <div className="sp-help mt-20">
+                    <h4>{mi('help')} Come configurare Azure</h4>
+                    <ol className="sp-help-steps">
+                      <li>Vai su <strong>portal.azure.com</strong> → Microsoft Entra ID → App registrations → <strong>New registration</strong></li>
+                      <li>Nome: <code>FlowDesk</code>, Redirect URI: <strong>http://localhost:59823/redirect</strong> (tipo: Web)</li>
+                      <li>Copia <strong>Application (client) ID</strong> e <strong>Directory (tenant) ID</strong> dalla pagina Overview</li>
+                      <li>Vai su <strong>API permissions</strong> → Add a permission → Microsoft Graph → Delegated:</li>
+                      <li className="sp-perm-list">
+                        <code>Sites.ReadWrite.All</code>, <code>Files.ReadWrite.All</code>, <code>User.Read</code>
+                      </li>
+                      <li>Clicca <strong>Grant admin consent</strong> (richiede un admin del tenant)</li>
+                      <li>In <strong>Authentication</strong> → abilita <strong>"Allow public client flows"</strong> → Yes</li>
+                      <li>Incolla qui sopra i valori e l'URL del sito SharePoint, poi clicca <strong>Connetti</strong></li>
+                    </ol>
+                  </div>
+                </div>
+              )}
+
+              {/* Lists Tab */}
+              {spTab === 'lists' && spConnected && (
+                <div className="sp-lists-container">
+                  {!spSelectedList ? (
+                    <>
+                      <div className="form-row mb-12">
+                        <button className="btn-secondary" onClick={spLoadLists} disabled={spLoading}>{mi('refresh')} Aggiorna liste</button>
+                      </div>
+                      {spLoading && <p className="muted">{mi('hourglass_empty')} Caricamento...</p>}
+                      <div className="sp-list-grid">
+                        {spLists.map(l => (
+                          <div key={l.id} className="sp-list-card" onClick={() => spSelectList(l)}>
+                            <div className="sp-list-card-icon">{mi('list')}</div>
+                            <div className="sp-list-card-body">
+                              <strong>{l.name}</strong>
+                              {l.description && <p className="muted small">{l.description}</p>}
+                              <span className="muted small">{l.template} · {new Date(l.lastModified).toLocaleDateString('it-IT')}</span>
+                            </div>
+                            <span className="material-symbols-outlined sp-list-arrow">chevron_right</span>
+                          </div>
+                        ))}
+                        {spLists.length === 0 && !spLoading && <p className="muted">Nessuna lista trovata. Verifica il Site URL e i permessi.</p>}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="form-row mb-12 ai-c">
+                        <button className="btn-ghost" onClick={() => { setSpSelectedList(null); setSpListItems([]); setSpListColumns([]); setSpEditItemId(null); }}>{mi('arrow_back')} Torna alle liste</button>
+                        <h3 className="fg-1 ml-12">{mi('list')} {spSelectedList.name}</h3>
+                        <button className="btn-xs btn-secondary" onClick={() => spSelectList(spSelectedList)}>{mi('refresh')}</button>
+                      </div>
+
+                      {/* Add item form */}
+                      {spListColumns.length > 0 && (
+                        <form className="card sp-add-form mb-16" onSubmit={spAddItem}>
+                          <h4 className="mb-8">{mi('add')} Nuovo elemento</h4>
+                          <div className="sp-field-grid">
+                            {spListColumns.filter(c => c.name !== 'Title' || true).slice(0, 8).map(col => (
+                              <div key={col.name} className="form-group">
+                                <label>{col.displayName}{col.required && <span className="sp-req"> *</span>}</label>
+                                {col.type === 'choice' ? (
+                                  <select value={spNewItemFields[col.name] || ''} onChange={e => setSpNewItemFields({ ...spNewItemFields, [col.name]: e.target.value })}>
+                                    <option value="">—</option>
+                                    {col.choices.map(ch => <option key={ch} value={ch}>{ch}</option>)}
+                                  </select>
+                                ) : (
+                                  <input value={spNewItemFields[col.name] || ''} type={col.type === 'number' ? 'number' : col.type === 'dateTime' ? 'date' : 'text'}
+                                    onChange={e => setSpNewItemFields({ ...spNewItemFields, [col.name]: e.target.value })} />
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          <button className="btn-primary mt-8" type="submit" disabled={spLoading}>{mi('add')} Aggiungi</button>
+                        </form>
+                      )}
+
+                      {/* Items table */}
+                      {spLoading && <p className="muted">{mi('hourglass_empty')} Caricamento...</p>}
+                      <div className="sp-items-table-wrap">
+                        <table className="sp-table">
+                          <thead>
+                            <tr>
+                              <th>ID</th>
+                              {spListColumns.slice(0, 6).map(c => <th key={c.name}>{c.displayName}</th>)}
+                              <th>Azioni</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {spListItems.map(item => (
+                              <tr key={item.id}>
+                                <td className="mono">{item.id}</td>
+                                {spListColumns.slice(0, 6).map(c => (
+                                  <td key={c.name}>
+                                    {spEditItemId === item.id ? (
+                                      <input className="sp-inline-edit" value={spEditFields[c.name] || ''}
+                                        onChange={e => setSpEditFields({ ...spEditFields, [c.name]: e.target.value })} />
+                                    ) : (
+                                      String(item.fields[c.name] ?? '—')
+                                    )}
+                                  </td>
+                                ))}
+                                <td className="sp-td-actions">
+                                  {spEditItemId === item.id ? (
+                                    <>
+                                      <button className="btn-xs btn-primary" onClick={spSaveItem}>{mi('save')}</button>
+                                      <button className="btn-xs btn-ghost" onClick={() => setSpEditItemId(null)}>{mi('close')}</button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <button className="btn-xs btn-ghost" onClick={() => {
+                                        setSpEditItemId(item.id);
+                                        const f: Record<string, string> = {};
+                                        spListColumns.forEach(c => { f[c.name] = String(item.fields[c.name] ?? ''); });
+                                        setSpEditFields(f);
+                                      }}>{mi('edit')}</button>
+                                      <button className="btn-xs btn-del" onClick={() => spRemoveItem(item.id)}>{mi('delete')}</button>
+                                    </>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                            {spListItems.length === 0 && !spLoading && <tr><td className="muted ta-c" colSpan={spListColumns.length + 2}>Nessun elemento</td></tr>}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Documents Tab */}
+              {spTab === 'documents' && spConnected && (
+                <div className="sp-docs-container">
+                  {!spSelectedDrive ? (
+                    <>
+                      <div className="form-row mb-12">
+                        <button className="btn-secondary" onClick={spLoadDrives} disabled={spLoading}>{mi('refresh')} Aggiorna librerie</button>
+                      </div>
+                      {spLoading && <p className="muted">{mi('hourglass_empty')} Caricamento...</p>}
+                      <div className="sp-list-grid">
+                        {spDrives.map(d => (
+                          <div key={d.id} className="sp-list-card" onClick={() => spSelectDrive(d)}>
+                            <div className="sp-list-card-icon">{mi('folder')}</div>
+                            <div className="sp-list-card-body">
+                              <strong>{d.name}</strong>
+                              {d.description && <p className="muted small">{d.description}</p>}
+                              <span className="muted small">{fmtBytes(d.usedSize)} / {fmtBytes(d.totalSize)}</span>
+                            </div>
+                            <span className="material-symbols-outlined sp-list-arrow">chevron_right</span>
+                          </div>
+                        ))}
+                        {spDrives.length === 0 && !spLoading && <p className="muted">Nessuna document library trovata.</p>}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="form-row mb-12 ai-c">
+                        <button className="btn-ghost" onClick={() => { setSpSelectedDrive(null); setSpDriveItems([]); setSpFolderStack([]); }}>{mi('arrow_back')} Librerie</button>
+                        {spFolderStack.length > 0 && (
+                          <button className="btn-ghost" onClick={spGoBack}>{mi('arrow_upward')} Su</button>
+                        )}
+                        <div className="sp-breadcrumb fg-1 ml-12">
+                          <strong>{spSelectedDrive.name}</strong>
+                          {spFolderStack.map((f, i) => <span key={i}> / {f.name}</span>)}
+                        </div>
+                        <button className="btn-xs btn-primary" onClick={spDoUpload}>{mi('upload_file')} Carica file</button>
+                      </div>
+
+                      {/* New folder */}
+                      <div className="form-row mb-12">
+                        <input className="sp-folder-input" value={spNewFolderName} onChange={e => setSpNewFolderName(e.target.value)} placeholder="Nuova cartella..." />
+                        <button className="btn-xs btn-secondary" onClick={spDoCreateFolder} disabled={!spNewFolderName.trim()}>{mi('create_new_folder')} Crea</button>
+                      </div>
+
+                      {spLoading && <p className="muted">{mi('hourglass_empty')} Caricamento...</p>}
+
+                      <div className="sp-file-list">
+                        {spDriveItems.map(item => (
+                          <div key={item.id} className={`sp-file-row${item.isFolder ? ' sp-folder-row' : ''}`}>
+                            <span className="material-symbols-outlined sp-file-icon">{item.isFolder ? 'folder' : 'description'}</span>
+                            <div className="sp-file-info fg-1" onClick={() => item.isFolder ? spOpenFolder(item) : undefined} style={item.isFolder ? { cursor: 'pointer' } : undefined}>
+                              <strong>{item.name}</strong>
+                              <span className="muted small">{item.isFolder ? `${item.childCount} elementi` : fmtBytes(item.size)} · {item.createdBy} · {new Date(item.lastModified).toLocaleDateString('it-IT')}</span>
+                            </div>
+                            <div className="sp-file-actions">
+                              {!item.isFolder && (
+                                <button className="btn-xs btn-ghost" onClick={() => api?.spDownloadFile(spSiteId, spSelectedDrive!.id, item.id, item.name)}>{mi('download')} Scarica</button>
+                              )}
+                              <button className="btn-xs btn-del" onClick={() => spDoDeleteItem(item.id)}>{mi('delete')}</button>
+                            </div>
+                          </div>
+                        ))}
+                        {spDriveItems.length === 0 && !spLoading && (
+                          <div className="sp-empty">
+                            <div style={{ fontSize: 48, opacity: 0.3 }}>{mi('folder_open')}</div>
+                            <p className="muted mt-8">Cartella vuota</p>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+            );
+          })()}
 
         </div>
       </main>

@@ -175,6 +175,28 @@ contextBridge.exposeInMainWorld('flowdesk', {
   analyzerExportPdf: (analysisData) => ipcRenderer.invoke('analyzer:exportPdf', analysisData),
   reportExportPdf: (htmlContent) => ipcRenderer.invoke('report:exportPdf', htmlContent),
 
+  /* SharePoint */
+  spGetConfig: () => ipcRenderer.invoke('sp:getConfig'),
+  spSaveConfig: (cfg) => ipcRenderer.invoke('sp:saveConfig', cfg),
+  spConnect: () => ipcRenderer.invoke('sp:connect'),
+  spDisconnect: () => ipcRenderer.invoke('sp:disconnect'),
+  spIsConnected: () => ipcRenderer.invoke('sp:isConnected'),
+  spGetUser: () => ipcRenderer.invoke('sp:getUser'),
+  spSearchSites: (query) => ipcRenderer.invoke('sp:searchSites', query),
+  spGetSiteId: (siteUrl) => ipcRenderer.invoke('sp:getSiteId', siteUrl),
+  spGetLists: (siteId) => ipcRenderer.invoke('sp:getLists', siteId),
+  spGetListItems: (siteId, listId, top, skip) => ipcRenderer.invoke('sp:getListItems', siteId, listId, top, skip),
+  spGetListColumns: (siteId, listId) => ipcRenderer.invoke('sp:getListColumns', siteId, listId),
+  spCreateListItem: (siteId, listId, fields) => ipcRenderer.invoke('sp:createListItem', siteId, listId, fields),
+  spUpdateListItem: (siteId, listId, itemId, fields) => ipcRenderer.invoke('sp:updateListItem', siteId, listId, itemId, fields),
+  spDeleteListItem: (siteId, listId, itemId) => ipcRenderer.invoke('sp:deleteListItem', siteId, listId, itemId),
+  spGetDrives: (siteId) => ipcRenderer.invoke('sp:getDrives', siteId),
+  spGetDriveItems: (siteId, driveId, folderId) => ipcRenderer.invoke('sp:getDriveItems', siteId, driveId, folderId),
+  spDownloadFile: (siteId, driveId, itemId, fileName) => ipcRenderer.invoke('sp:downloadFile', siteId, driveId, itemId, fileName),
+  spUploadFile: (siteId, driveId, folderId) => ipcRenderer.invoke('sp:uploadFile', siteId, driveId, folderId),
+  spDeleteItem: (siteId, driveId, itemId) => ipcRenderer.invoke('sp:deleteItem', siteId, driveId, itemId),
+  spCreateFolder: (siteId, driveId, folderId, folderName) => ipcRenderer.invoke('sp:createFolder', siteId, driveId, folderId, folderName),
+
   /* Menu events */
   onNavigate: (cb) => ipcRenderer.on('navigate', (_e, view) => cb(view)),
   onToggleDark: (cb) => ipcRenderer.on('toggle-dark', () => cb()),

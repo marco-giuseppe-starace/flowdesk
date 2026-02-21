@@ -3,11 +3,162 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { initDb, closeDb, getDbPath, repo } = require('./db.cjs');
 const { parseMsapp, diffApps } = require('./msapp-parser.cjs');
+const msal = require('@azure/msal-node');
+const crypto = require('node:crypto');
 
 const isDev = !app.isPackaged;
 
 /* ═══ In-memory cache of parsed apps for diff ═══ */
 const parsedAppsCache = new Map(); // id -> parsed result
+
+/* ═══ SharePoint — MSAL Auth + Graph API ═══ */
+let msalApp = null;
+let spTokenCache = null; // { accessToken, expiresOn, account }
+let spConfig = null; // { clientId, tenantId, siteUrl }
+
+function getSpConfigPath() { return path.join(app.getPath('userData'), 'sp-config.json'); }
+function loadSpConfig() {
+  try { spConfig = JSON.parse(fs.readFileSync(getSpConfigPath(), 'utf-8')); return spConfig; } catch { spConfig = null; return null; }
+}
+function saveSpConfig(cfg) {
+  spConfig = cfg;
+  fs.writeFileSync(getSpConfigPath(), JSON.stringify(cfg, null, 2), 'utf-8');
+}
+
+function initMsal(clientId, tenantId) {
+  msalApp = new msal.PublicClientApplication({
+    auth: {
+      clientId,
+      authority: `https://login.microsoftonline.com/${tenantId}`,
+    },
+    cache: { cachePlugin: undefined },
+  });
+  return msalApp;
+}
+
+async function spAcquireTokenInteractive(scopes) {
+  if (!msalApp) throw new Error('MSAL non inizializzato. Configura Client ID e Tenant ID.');
+
+  // Try silent first if we have a cached account
+  if (spTokenCache && spTokenCache.account) {
+    try {
+      const silentResult = await msalApp.acquireTokenSilent({
+        scopes,
+        account: spTokenCache.account,
+      });
+      spTokenCache = { accessToken: silentResult.accessToken, expiresOn: silentResult.expiresOn, account: silentResult.account };
+      return silentResult.accessToken;
+    } catch { /* silent failed, go interactive */ }
+  }
+
+  // Interactive: open a BrowserWindow for login
+  const authCodeUrlParams = {
+    scopes,
+    redirectUri: 'http://localhost:59823/redirect',
+  };
+  // Generate PKCE
+  const verifier = msal.CryptoProvider ? undefined : undefined;
+  const cryptoProvider = new msal.CryptoProvider();
+  const { verifier: codeVerifier, challenge: codeChallenge } = await cryptoProvider.generatePkceCodes();
+  authCodeUrlParams.codeChallenge = codeChallenge;
+  authCodeUrlParams.codeChallengeMethod = 'S256';
+
+  const authUrl = await msalApp.getAuthCodeUrl(authCodeUrlParams);
+
+  return new Promise((resolve, reject) => {
+    // Start a tiny HTTP server to capture the redirect
+    const http = require('node:http');
+    const server = http.createServer();
+    let settled = false;
+
+    server.listen(59823, '127.0.0.1', () => {
+      const loginWin = new BrowserWindow({
+        width: 500, height: 700,
+        autoHideMenuBar: true,
+        title: 'Microsoft Login — SharePoint',
+        webPreferences: { nodeIntegration: false, contextIsolation: true },
+      });
+
+      loginWin.loadURL(authUrl);
+
+      loginWin.on('closed', () => {
+        if (!settled) {
+          settled = true;
+          try { server.close(); } catch {}
+          reject(new Error('Login annullato dall\'utente.'));
+        }
+      });
+
+      server.on('request', async (req, res) => {
+        if (settled) { res.end(); return; }
+        const url = new URL(req.url, 'http://localhost:59823');
+        const code = url.searchParams.get('code');
+        const error = url.searchParams.get('error');
+
+        if (error) {
+          settled = true;
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          res.end('<html><body><h2>Errore di autenticazione</h2><p>Puoi chiudere questa finestra.</p></body></html>');
+          loginWin.close();
+          server.close();
+          reject(new Error(url.searchParams.get('error_description') || error));
+          return;
+        }
+
+        if (code) {
+          settled = true;
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          res.end('<html><body><h2>Autenticazione riuscita!</h2><p>Puoi chiudere questa finestra.</p><script>setTimeout(()=>window.close(),1500)</script></body></html>');
+          loginWin.close();
+          server.close();
+
+          try {
+            const tokenResult = await msalApp.acquireTokenByCode({
+              code,
+              scopes,
+              redirectUri: 'http://localhost:59823/redirect',
+              codeVerifier,
+            });
+            spTokenCache = { accessToken: tokenResult.accessToken, expiresOn: tokenResult.expiresOn, account: tokenResult.account };
+            resolve(tokenResult.accessToken);
+          } catch (err) {
+            reject(err);
+          }
+        }
+      });
+    });
+  });
+}
+
+const SP_SCOPES = ['https://graph.microsoft.com/Sites.ReadWrite.All', 'https://graph.microsoft.com/Files.ReadWrite.All', 'User.Read'];
+
+async function spFetch(endpoint, options = {}) {
+  const token = await spAcquireTokenInteractive(SP_SCOPES);
+  const url = endpoint.startsWith('http') ? endpoint : `https://graph.microsoft.com/v1.0${endpoint}`;
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+  });
+  if (res.status === 204) return { ok: true };
+  if (!res.ok) {
+    const errBody = await res.text();
+    throw new Error(`Graph API ${res.status}: ${errBody}`);
+  }
+  return res.json();
+}
+
+/** Extract siteId from a SharePoint site URL like https://contoso.sharepoint.com/sites/MySite */
+async function spResolveSiteId(siteUrl) {
+  const u = new URL(siteUrl);
+  const hostname = u.hostname; // contoso.sharepoint.com
+  const sitePath = u.pathname.replace(/\/$/, ''); // /sites/MySite
+  const data = await spFetch(`/sites/${hostname}:${sitePath}`);
+  return data.id;
+}
 
 /* ═══ OneDrive detection ═══ */
 function detectOneDriveFolders() {
@@ -953,6 +1104,199 @@ function registerIpcHandlers() {
     } finally {
       pdfWin.close();
     }
+  });
+
+  /* ═══ SharePoint ═══ */
+  // Load saved config on startup
+  loadSpConfig();
+  if (spConfig && spConfig.clientId && spConfig.tenantId) {
+    try { initMsal(spConfig.clientId, spConfig.tenantId); } catch {}
+  }
+
+  ipcMain.handle('sp:getConfig', () => {
+    return spConfig || null;
+  });
+
+  ipcMain.handle('sp:saveConfig', (_, cfg) => {
+    saveSpConfig(cfg);
+    initMsal(cfg.clientId, cfg.tenantId);
+    spTokenCache = null; // force new login
+    return { ok: true };
+  });
+
+  ipcMain.handle('sp:connect', async () => {
+    if (!spConfig) throw new Error('Configurazione SharePoint mancante.');
+    if (!msalApp) initMsal(spConfig.clientId, spConfig.tenantId);
+    const token = await spAcquireTokenInteractive(SP_SCOPES);
+    // Get user info
+    const me = await spFetch('/me');
+    return { ok: true, user: { name: me.displayName, email: me.mail || me.userPrincipalName } };
+  });
+
+  ipcMain.handle('sp:disconnect', () => {
+    spTokenCache = null;
+    return { ok: true };
+  });
+
+  ipcMain.handle('sp:isConnected', () => {
+    return !!(spTokenCache && spTokenCache.accessToken);
+  });
+
+  ipcMain.handle('sp:getUser', async () => {
+    if (!spTokenCache) return null;
+    try {
+      const me = await spFetch('/me');
+      return { name: me.displayName, email: me.mail || me.userPrincipalName };
+    } catch { return null; }
+  });
+
+  // ── Sites ──
+  ipcMain.handle('sp:searchSites', async (_, query) => {
+    const data = await spFetch(`/sites?search=${encodeURIComponent(query)}`);
+    return (data.value || []).map(s => ({ id: s.id, name: s.displayName, url: s.webUrl, description: s.description }));
+  });
+
+  ipcMain.handle('sp:getSiteId', async (_, siteUrl) => {
+    return await spResolveSiteId(siteUrl);
+  });
+
+  // ── Lists ──
+  ipcMain.handle('sp:getLists', async (_, siteId) => {
+    const data = await spFetch(`/sites/${siteId}/lists?$top=100&$select=id,displayName,description,lastModifiedDateTime,list`);
+    return (data.value || []).map(l => ({
+      id: l.id, name: l.displayName, description: l.description || '',
+      template: l.list?.template || '', lastModified: l.lastModifiedDateTime,
+      hidden: l.list?.hidden || false,
+    })).filter(l => !l.hidden);
+  });
+
+  ipcMain.handle('sp:getListItems', async (_, siteId, listId, top, skip) => {
+    const t = top || 50;
+    const s = skip || 0;
+    const data = await spFetch(`/sites/${siteId}/lists/${listId}/items?$expand=fields&$top=${t}&$skip=${s}`);
+    return {
+      items: (data.value || []).map(i => ({ id: i.id, fields: i.fields || {}, createdAt: i.createdDateTime, modifiedAt: i.lastModifiedDateTime })),
+      hasMore: !!(data['@odata.nextLink']),
+    };
+  });
+
+  ipcMain.handle('sp:getListColumns', async (_, siteId, listId) => {
+    const data = await spFetch(`/sites/${siteId}/lists/${listId}/columns?$top=100`);
+    return (data.value || []).filter(c => !c.readOnly && c.name !== 'ContentType' && c.name !== 'Attachments')
+      .map(c => ({ name: c.name, displayName: c.displayName, type: c.text ? 'text' : c.number ? 'number' : c.dateTime ? 'dateTime' : c.boolean ? 'boolean' : c.choice ? 'choice' : c.lookup ? 'lookup' : 'other', required: c.required || false, choices: c.choice?.choices || [] }));
+  });
+
+  ipcMain.handle('sp:createListItem', async (_, siteId, listId, fields) => {
+    const data = await spFetch(`/sites/${siteId}/lists/${listId}/items`, {
+      method: 'POST',
+      body: JSON.stringify({ fields }),
+    });
+    return { id: data.id, fields: data.fields || fields };
+  });
+
+  ipcMain.handle('sp:updateListItem', async (_, siteId, listId, itemId, fields) => {
+    await spFetch(`/sites/${siteId}/lists/${listId}/items/${itemId}/fields`, {
+      method: 'PATCH',
+      body: JSON.stringify(fields),
+    });
+    return { ok: true };
+  });
+
+  ipcMain.handle('sp:deleteListItem', async (_, siteId, listId, itemId) => {
+    await spFetch(`/sites/${siteId}/lists/${listId}/items/${itemId}`, { method: 'DELETE' });
+    return { ok: true };
+  });
+
+  // ── Documents (Drive) ──
+  ipcMain.handle('sp:getDrives', async (_, siteId) => {
+    const data = await spFetch(`/sites/${siteId}/drives`);
+    return (data.value || []).map(d => ({ id: d.id, name: d.name, description: d.description || '', webUrl: d.webUrl, totalSize: d.quota?.total || 0, usedSize: d.quota?.used || 0 }));
+  });
+
+  ipcMain.handle('sp:getDriveItems', async (_, siteId, driveId, folderId) => {
+    const ep = folderId
+      ? `/sites/${siteId}/drives/${driveId}/items/${folderId}/children?$top=200`
+      : `/sites/${siteId}/drives/${driveId}/root/children?$top=200`;
+    const data = await spFetch(ep);
+    return (data.value || []).map(i => ({
+      id: i.id, name: i.name, isFolder: !!i.folder,
+      size: i.size || 0, mimeType: i.file?.mimeType || '',
+      webUrl: i.webUrl, downloadUrl: i['@microsoft.graph.downloadUrl'] || '',
+      lastModified: i.lastModifiedDateTime,
+      childCount: i.folder?.childCount || 0,
+      createdBy: i.createdBy?.user?.displayName || '',
+    }));
+  });
+
+  ipcMain.handle('sp:downloadFile', async (_, siteId, driveId, itemId, fileName) => {
+    const win = getWin();
+    const result = await dialog.showSaveDialog(win, {
+      title: 'Salva file da SharePoint',
+      defaultPath: fileName,
+    });
+    if (result.canceled || !result.filePath) return { ok: false };
+
+    const token = await spAcquireTokenInteractive(SP_SCOPES);
+    const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/drives/${driveId}/items/${itemId}/content`;
+    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) throw new Error(`Download fallito: ${res.status}`);
+    const buffer = Buffer.from(await res.arrayBuffer());
+    fs.writeFileSync(result.filePath, buffer);
+    shell.openPath(result.filePath);
+    return { ok: true, path: result.filePath };
+  });
+
+  ipcMain.handle('sp:uploadFile', async (_, siteId, driveId, folderId) => {
+    const win = getWin();
+    const fileResult = await dialog.showOpenDialog(win, {
+      title: 'Seleziona file da caricare su SharePoint',
+      properties: ['openFile'],
+    });
+    if (fileResult.canceled || !fileResult.filePaths[0]) return null;
+
+    const filePath = fileResult.filePaths[0];
+    const fileName = path.basename(filePath);
+    const fileBuffer = fs.readFileSync(filePath);
+    const token = await spAcquireTokenInteractive(SP_SCOPES);
+
+    const ep = folderId
+      ? `https://graph.microsoft.com/v1.0/sites/${siteId}/drives/${driveId}/items/${folderId}:/${encodeURIComponent(fileName)}:/content`
+      : `https://graph.microsoft.com/v1.0/sites/${siteId}/drives/${driveId}/root:/${encodeURIComponent(fileName)}:/content`;
+
+    const res = await fetch(ep, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/octet-stream',
+      },
+      body: fileBuffer,
+    });
+    if (!res.ok) {
+      const errBody = await res.text();
+      throw new Error(`Upload fallito: ${res.status} — ${errBody}`);
+    }
+    const data = await res.json();
+    return { ok: true, id: data.id, name: data.name, webUrl: data.webUrl, size: data.size };
+  });
+
+  ipcMain.handle('sp:deleteItem', async (_, siteId, driveId, itemId) => {
+    await spFetch(`/sites/${siteId}/drives/${driveId}/items/${itemId}`, { method: 'DELETE' });
+    return { ok: true };
+  });
+
+  ipcMain.handle('sp:createFolder', async (_, siteId, driveId, folderId, folderName) => {
+    const ep = folderId
+      ? `/sites/${siteId}/drives/${driveId}/items/${folderId}/children`
+      : `/sites/${siteId}/drives/${driveId}/root/children`;
+    const data = await spFetch(ep, {
+      method: 'POST',
+      body: JSON.stringify({
+        name: folderName,
+        folder: {},
+        '@microsoft.graph.conflictBehavior': 'rename',
+      }),
+    });
+    return { ok: true, id: data.id, name: data.name };
   });
 
   /* ═══ Report — Export PDF ═══ */

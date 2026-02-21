@@ -1858,3 +1858,82 @@ html.dark .report-goal-item.done { background: #14532d33; }
 [data-theme="dark"] .fdhub-diff-summary { background: #1e293b; }
 [data-theme="dark"] .attachment-item { background: #1e293b; }
 [data-theme="dark"] .attachment-item:hover { background: color-mix(in srgb, var(--primary) 12%, #1e293b); }
+
+/* ═══════════════ SharePoint ═══════════════ */
+.sp-user-badge { display: flex; align-items: center; gap: 6px; font-size: 13px; background: color-mix(in srgb, var(--primary) 8%, var(--card)); border: 1px solid var(--border); border-radius: 8px; padding: 6px 14px; }
+.sp-user-badge .material-symbols-outlined { font-size: 18px; color: var(--primary); }
+
+.sp-tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--border); padding-bottom: 0; }
+.sp-tab { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; font-size: 13px; font-weight: 600; color: var(--text-muted); background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; cursor: pointer; border-radius: 6px 6px 0 0; transition: all 0.15s; }
+.sp-tab:hover:not(:disabled) { background: var(--bg-hover); color: var(--text); }
+.sp-tab.active { color: var(--primary); border-bottom-color: var(--primary); background: color-mix(in srgb, var(--primary) 6%, transparent); }
+.sp-tab:disabled { opacity: 0.4; cursor: not-allowed; }
+.sp-tab .material-symbols-outlined { font-size: 18px; }
+
+.sp-config-card { max-width: 640px; }
+.sp-config-card code { background: color-mix(in srgb, var(--primary) 10%, var(--bg)); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+
+.sp-help { background: color-mix(in srgb, var(--primary) 5%, var(--bg)); border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border)); border-radius: 10px; padding: 16px 20px; }
+.sp-help h4 { font-size: 14px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; color: var(--primary); }
+.sp-help h4 .material-symbols-outlined { font-size: 18px; }
+.sp-help-steps { margin: 0; padding-left: 20px; font-size: 13px; display: flex; flex-direction: column; gap: 6px; color: var(--text-muted); }
+.sp-help-steps li { line-height: 1.6; }
+.sp-help-steps strong { color: var(--text); }
+.sp-perm-list { list-style: none; margin-left: -20px; padding: 6px 12px; background: color-mix(in srgb, var(--primary) 8%, var(--card)); border-radius: 6px; display: flex; gap: 8px; flex-wrap: wrap; }
+.sp-req { color: #dc2626; font-weight: 700; }
+
+.sp-list-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+.sp-list-card { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; transition: all 0.15s; }
+.sp-list-card:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 5%, var(--card)); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.sp-list-card-icon { width: 40px; height: 40px; border-radius: 8px; background: color-mix(in srgb, var(--primary) 12%, var(--bg)); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.sp-list-card-icon .material-symbols-outlined { font-size: 22px; color: var(--primary); }
+.sp-list-card-body { flex: 1; min-width: 0; }
+.sp-list-card-body strong { display: block; font-size: 14px; margin-bottom: 2px; }
+.sp-list-card-body .small { font-size: 12px; }
+.sp-list-arrow { font-size: 20px; color: var(--text-muted); }
+
+.sp-field-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.sp-add-form { padding: 14px 18px; }
+.sp-add-form h4 { display: flex; align-items: center; gap: 6px; }
+.sp-add-form h4 .material-symbols-outlined { font-size: 18px; color: var(--primary); }
+
+.sp-items-table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+.sp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.sp-table th { background: color-mix(in srgb, var(--primary) 10%, var(--card)); padding: 10px 12px; font-weight: 600; text-align: left; white-space: nowrap; font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-muted); }
+.sp-table td { padding: 8px 12px; border-top: 1px solid var(--border); }
+.sp-table tr:hover td { background: color-mix(in srgb, var(--primary) 4%, var(--card)); }
+.sp-table .mono { font-family: monospace; font-size: 12px; color: var(--text-muted); }
+.sp-inline-edit { width: 100%; padding: 4px 6px; font-size: 13px; border: 1px solid var(--primary); border-radius: 4px; background: var(--bg); color: var(--text); }
+.sp-td-actions { white-space: nowrap; display: flex; gap: 4px; }
+
+.sp-breadcrumb { font-size: 14px; color: var(--text-muted); }
+.sp-breadcrumb strong { color: var(--text); }
+.sp-folder-input { flex: 1; max-width: 260px; padding: 6px 10px; font-size: 13px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
+
+.sp-file-list { display: flex; flex-direction: column; gap: 2px; }
+.sp-file-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; transition: background 0.12s; }
+.sp-file-row:hover { background: var(--bg-hover); }
+.sp-folder-row { cursor: pointer; }
+.sp-folder-row:hover { background: color-mix(in srgb, var(--primary) 6%, var(--bg)); }
+.sp-file-icon { font-size: 22px; color: var(--text-muted); flex-shrink: 0; }
+.sp-folder-row .sp-file-icon { color: #f59e0b; }
+.sp-file-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sp-file-info strong { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-file-info .small { font-size: 12px; }
+.sp-file-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+.sp-empty { text-align: center; padding: 40px 20px; }
+
+.alert-error { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.alert-error .material-symbols-outlined { font-size: 18px; }
+.alert-error .btn-xs { margin-left: auto; }
+
+/* ═══ Dark Mode — SharePoint ═══ */
+[data-theme="dark"] .sp-list-card { background: #1e293b; border-color: #334155; }
+[data-theme="dark"] .sp-list-card:hover { background: color-mix(in srgb, var(--primary) 10%, #1e293b); }
+[data-theme="dark"] .sp-table th { background: color-mix(in srgb, var(--primary) 15%, #1e293b); }
+[data-theme="dark"] .sp-file-row:hover { background: #1e293b; }
+[data-theme="dark"] .sp-folder-row:hover { background: color-mix(in srgb, var(--primary) 10%, #1e293b); }
+[data-theme="dark"] .alert-error { background: #450a0a; border-color: #7f1d1d; color: #fca5a5; }
+[data-theme="dark"] .sp-inline-edit { background: #0f172a; border-color: var(--primary); }
+[data-theme="dark"] .sp-folder-input { background: #0f172a; }
