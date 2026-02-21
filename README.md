@@ -1,10 +1,27 @@
 # FlowDesk
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![GitHub release](https://img.shields.io/github/v/release/marco-giuseppe-starace/flowdesk)](https://github.com/marco-giuseppe-starace/flowdesk/releases)
+[![Platform: Windows](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows)](https://github.com/marco-giuseppe-starace/flowdesk/releases)
+[![Built with Electron](https://img.shields.io/badge/built%20with-Electron-47848F?logo=electron)](https://www.electronjs.org/)
+
+<p align="center">
+  <img src="docs/screenshots/flowdesk-demo.gif" alt="FlowDesk Demo" width="800" />
+</p>
+
+> **Nota:** Aggiungi una GIF o screenshot dell'app nella cartella `docs/screenshots/` e rimuovi questa nota.
 
 **FlowDesk** è un'applicazione desktop di produttività e tracciamento del lavoro pensata per professionisti che lavorano con la **Microsoft Power Platform** (Power Apps, Power Automate, Power BI, Dataverse, ecc.).
 
 **Versione corrente:** 0.3.0
+
+---
+
+## Why FlowDesk?
+
+Chi lavora con Power Platform gestisce decine di app, flussi, ambienti e task sparsi tra portali web, Excel e note.
+**FlowDesk unifica tutto in un unico desktop tool offline-first**: Kanban board, timer, analyzer `.msapp`, version control locale (FDHub), integrazione SharePoint e report PDF — senza dipendere da licenze cloud aggiuntive.
+Meno context-switch, più produttività.
 
 ---
 
