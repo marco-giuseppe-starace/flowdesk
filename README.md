@@ -6,10 +6,8 @@
 [![Built with Electron](https://img.shields.io/badge/built%20with-Electron-47848F?logo=electron)](https://www.electronjs.org/)
 
 <p align="center">
-  <img src="docs/screenshots/flowdesk-demo.gif" alt="FlowDesk Demo" width="800" />
+  <img src="docs/screenshots/Animation.gif" alt="FlowDesk Demo" width="800" />
 </p>
-
-> **Nota:** Aggiungi una GIF o screenshot dell'app nella cartella `docs/screenshots/` e rimuovi questa nota.
 
 **FlowDesk** è un'applicazione desktop di produttività e tracciamento del lavoro pensata per professionisti che lavorano con la **Microsoft Power Platform** (Power Apps, Power Automate, Power BI, Dataverse, ecc.).
 
