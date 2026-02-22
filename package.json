@@ -1,8 +1,8 @@
 {
   "name": "flowdesk",
   "private": true,
-  "version": "0.3.0",
-  "description": "Power Platform productivity tracker — Kanban, Timer, Change Log, FDHub, Analyzer, Attachments, OneDrive sync, SharePoint integration",
+  "version": "0.4.0",
+  "description": "Power Platform productivity tracker — Kanban, Timer, Change Log, FDHub, Analyzer, Attachments, OneDrive sync, SharePoint integration, Update Checker",
   "author": "Marco Giuseppe Starace",
   "license": "MIT",
   "type": "module",

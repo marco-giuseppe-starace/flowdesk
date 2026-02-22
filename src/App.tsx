@@ -4830,8 +4830,8 @@ function App() {
 
           {/* ═══════ UPDATES ═══════ */}
           {view === 'updates' && (() => {
-            const [updateInfo, setUpdateInfo] = React.useState<UpdateInfo | null>(null);
-            const [checking, setChecking] = React.useState(false);
+            const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+            const [checking, setChecking] = useState(false);
 
             const doCheck = async () => {
               if (!api) return;
