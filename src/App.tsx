@@ -1269,7 +1269,20 @@ function App() {
   }
 
   /* ── Trash / Cestino handlers ── */
-  async function loadTrash() { if (!api) return; try { const items = await api.getTrashItems(); setTrashItems(items); } catch { showToast('error', 'Errore caricamento cestino'); } }
+  async function loadTrash() {
+    if (!api) return;
+    try {
+      const items = await api.getTrashItems();
+      const normalized = (items as Array<TrashItem & Record<string, unknown>>).map((item) => ({
+        ...item,
+        entityType: (item.entityType || item._entityType || '') as string,
+        title: (item.title || item.name || item.text || item.summary || item.artifact || '(senza titolo)') as string,
+      }));
+      setTrashItems(normalized);
+    } catch {
+      showToast('error', 'Errore caricamento cestino');
+    }
+  }
   async function restoreTrashItem(entityType: string, id: number) {
     if (!api) return;
     try {

@@ -1576,8 +1576,15 @@ function getTrashItems() {
   const learning = db.prepare(`SELECT ${LEARNING_COLS}, 'learning' AS entityType, deleted_at AS deletedAt FROM learning WHERE deleted_at IS NOT NULL`).all();
   const checklists = db.prepare(`SELECT ${CHECKLIST_COLS}, 'checklist' AS entityType, deleted_at AS deletedAt FROM checklists WHERE deleted_at IS NOT NULL`).all();
 
-  return [...tasks, ...notes, ...changes, ...bugs, ...snippets, ...bookmarks, ...contacts,
-          ...environments, ...goals, ...projects, ...retros, ...learning, ...checklists]
+  const allItems = [...tasks, ...notes, ...changes, ...bugs, ...snippets, ...bookmarks, ...contacts,
+    ...environments, ...goals, ...projects, ...retros, ...learning, ...checklists];
+
+  return allItems
+    .map((item) => ({
+      ...item,
+      entityType: item.entityType || item._entityType || '',
+      title: item.title || item.name || item.text || item.summary || item.artifact || '(senza titolo)',
+    }))
     .sort((a, b) => (b.deletedAt || '').localeCompare(a.deletedAt || ''));
 }
 
