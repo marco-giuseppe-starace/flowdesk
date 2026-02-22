@@ -1967,13 +1967,13 @@ function App() {
               </div>
 
               {/* Info banner */}
-              <div className="card mb-20" style={{ background: 'var(--bg-card)', border: '1px solid var(--clr-border)' }}>
+              <div className="card mb-20" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 28, color: 'var(--clr-accent)', flexShrink: 0, marginTop: 2 }}>info</span>
-                  <div style={{ fontSize: '0.92rem', lineHeight: 1.6, color: 'var(--clr-muted)' }}>
-                    <strong style={{ color: 'var(--clr-text)' }}>Come funziona il Timer?</strong><br />
+                  <span className="material-symbols-outlined" style={{ fontSize: 28, color: 'var(--primary)', flexShrink: 0, marginTop: 2 }}>info</span>
+                  <div style={{ fontSize: '0.92rem', lineHeight: 1.6, color: 'var(--text-muted)' }}>
+                    <strong style={{ color: 'var(--text)' }}>Come funziona il Timer?</strong><br />
                     Seleziona un task dalla lista e premi <em>Avvia</em> per iniziare a tracciare il tempo di lavoro. Al termine, premi <em>Ferma sessione</em> e opzionalmente aggiungi una nota. Le sessioni vengono registrate e contribuiscono alle statistiche e al Report giornaliero.<br /><br />
-                    <strong style={{ color: 'var(--clr-text)' }}>Cos'è il Pomodoro?</strong><br />
+                    <strong style={{ color: 'var(--text)' }}>Cos'è il Pomodoro?</strong><br />
                     La <strong>Tecnica del Pomodoro</strong> alterna cicli di <strong>25 minuti di lavoro concentrato</strong> a <strong>5 minuti di pausa</strong>. Riduce l'affaticamento mentale, elimina il multitasking e aumenta la produttività. Dopo 4 cicli è consigliata una pausa più lunga (15-30 min). Il badge nella sidebar mostra il tempo rimanente.
                   </div>
                 </div>
@@ -4914,11 +4914,11 @@ function App() {
               {/* Current version card */}
               <div className="card mb-20">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 48, color: 'var(--clr-accent)' }}>system_update</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: 48, color: 'var(--primary)' }}>system_update</span>
                   <div>
                     <h3 style={{ margin: 0 }}>FlowDesk</h3>
-                    <p style={{ margin: '4px 0 0', color: 'var(--clr-muted)', fontSize: '0.95rem' }}>
-                      Versione installata: <strong style={{ color: 'var(--clr-text)' }}>v{appVersion || '...'}</strong>
+                    <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '0.95rem' }}>
+                      Versione installata: <strong style={{ color: 'var(--text)' }}>v{appVersion || '...'}</strong>
                     </p>
                   </div>
                 </div>
@@ -4944,8 +4944,8 @@ function App() {
                       <span className="material-symbols-outlined" style={{ fontSize: 28, color: '#e67e22', flexShrink: 0 }}>warning</span>
                       <div>
                         <strong>Impossibile verificare gli aggiornamenti</strong>
-                        <p style={{ margin: '4px 0 0', color: 'var(--clr-muted)' }}>{updateInfo.error}</p>
-                        <p style={{ margin: '8px 0 0', fontSize: '0.85rem', color: 'var(--clr-muted)' }}>Controlla la connessione internet e riprova, oppure visita direttamente la pagina delle release su GitHub.</p>
+                        <p style={{ margin: '4px 0 0', color: 'var(--text-muted)' }}>{updateInfo.error}</p>
+                        <p style={{ margin: '8px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Controlla la connessione internet e riprova, oppure visita direttamente la pagina delle release su GitHub.</p>
                       </div>
                     </div>
                   ) : updateInfo.upToDate ? (
@@ -4953,7 +4953,7 @@ function App() {
                       <span className="material-symbols-outlined" style={{ fontSize: 28, color: '#27ae60', flexShrink: 0 }}>check_circle</span>
                       <div>
                         <strong style={{ color: '#27ae60' }}>Sei aggiornato!</strong>
-                        <p style={{ margin: '4px 0 0', color: 'var(--clr-muted)' }}>
+                        <p style={{ margin: '4px 0 0', color: 'var(--text-muted)' }}>
                           FlowDesk <strong>v{updateInfo.currentVersion}</strong> è l'ultima versione disponibile.
                           {updateInfo.message && <><br />{updateInfo.message}</>}
                         </p>
@@ -4962,18 +4962,18 @@ function App() {
                   ) : (
                     <div>
                       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 16 }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: 28, color: 'var(--clr-accent)', flexShrink: 0 }}>upgrade</span>
+                        <span className="material-symbols-outlined" style={{ fontSize: 28, color: 'var(--primary)', flexShrink: 0 }}>upgrade</span>
                         <div>
-                          <strong style={{ color: 'var(--clr-accent)' }}>Nuova versione disponibile!</strong>
-                          <p style={{ margin: '4px 0 0', color: 'var(--clr-muted)' }}>
-                            La versione <strong style={{ color: 'var(--clr-text)' }}>v{updateInfo.latestVersion}</strong> è disponibile. Tu hai la <strong>v{updateInfo.currentVersion}</strong>.
+                          <strong style={{ color: 'var(--primary)' }}>Nuova versione disponibile!</strong>
+                          <p style={{ margin: '4px 0 0', color: 'var(--text-muted)' }}>
+                            La versione <strong style={{ color: 'var(--text)' }}>v{updateInfo.latestVersion}</strong> è disponibile. Tu hai la <strong>v{updateInfo.currentVersion}</strong>.
                           </p>
                           {updateInfo.releaseName && <p style={{ margin: '4px 0 0', fontWeight: 600 }}>{updateInfo.releaseName}</p>}
-                          {updateInfo.publishedAt && <p style={{ margin: '2px 0 0', fontSize: '0.85rem', color: 'var(--clr-muted)' }}>Pubblicata il {new Date(updateInfo.publishedAt).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })}</p>}
+                          {updateInfo.publishedAt && <p style={{ margin: '2px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Pubblicata il {new Date(updateInfo.publishedAt).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })}</p>}
                         </div>
                       </div>
                       {updateInfo.body && (
-                        <div style={{ background: 'var(--bg-sidebar)', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontSize: '0.9rem', lineHeight: 1.6, maxHeight: 300, overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
+                        <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontSize: '0.9rem', lineHeight: 1.6, maxHeight: 300, overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
                           {updateInfo.body}
                         </div>
                       )}
@@ -4995,11 +4995,11 @@ function App() {
               )}
 
               {/* Info */}
-              <div className="card" style={{ border: '1px solid var(--clr-border)' }}>
+              <div className="card" style={{ border: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 24, color: 'var(--clr-accent)', flexShrink: 0, marginTop: 2 }}>info</span>
-                  <div style={{ fontSize: '0.88rem', lineHeight: 1.6, color: 'var(--clr-muted)' }}>
-                    <strong style={{ color: 'var(--clr-text)' }}>Come aggiornare FlowDesk</strong><br />
+                  <span className="material-symbols-outlined" style={{ fontSize: 24, color: 'var(--primary)', flexShrink: 0, marginTop: 2 }}>info</span>
+                  <div style={{ fontSize: '0.88rem', lineHeight: 1.6, color: 'var(--text-muted)' }}>
+                    <strong style={{ color: 'var(--text)' }}>Come aggiornare FlowDesk</strong><br />
                     1. Clicca <em>"Scarica"</em> o visita la pagina delle release<br />
                     2. Scarica il file <code>.exe</code> dell'ultima versione<br />
                     3. Chiudi FlowDesk<br />
@@ -5036,7 +5036,7 @@ function App() {
                         <tr key={`${item.entityType}-${item.id}`}>
                           <td><span className="badge">{item.entityType}</span></td>
                           <td>{item.title}</td>
-                          <td style={{ color: 'var(--clr-muted)', fontSize: '0.85rem' }}>{new Date(item.deletedAt).toLocaleString('it-IT')}</td>
+                          <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{new Date(item.deletedAt).toLocaleString('it-IT')}</td>
                           <td>
                             <div style={{ display: 'flex', gap: 6 }}>
                               <button className="btn-sm btn-secondary" onClick={() => restoreTrashItem(item.entityType, item.id)}>{mi('restore')} Ripristina</button>

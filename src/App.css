@@ -77,6 +77,18 @@
   --danger-hover: #dc2626;
   --warning: #f59e0b;
   --purple: #8b5cf6;
+  --muted: var(--text-muted);
+  --accent: var(--primary);
+  --bg-main: var(--bg);
+  --bg-secondary: color-mix(in srgb, var(--border) 55%, transparent);
+  --bg-hover: color-mix(in srgb, var(--border) 45%, transparent);
+  --text-main: var(--text);
+  --bg-card: var(--card);
+  --bg-sidebar: var(--sidebar);
+  --clr-text: var(--text);
+  --clr-muted: var(--text-muted);
+  --clr-border: var(--border);
+  --clr-accent: var(--primary);
   --radius: 10px;
   --shadow: 0 1px 3px rgba(0,0,0,.08);
   --shadow-md: 0 4px 12px rgba(0,0,0,.1);
@@ -87,6 +99,7 @@
   display: flex;
   min-height: 100vh;
   background: var(--bg);
+  color: var(--text);
 }
 
 /* ─── Sidebar ─── */
@@ -268,9 +281,9 @@ textarea.small { min-height: 48px; }
 .btn-link:hover { color: var(--primary-hover); text-decoration: underline; }
 .btn-sm { padding: 6px 12px; font-size: 12px; }
 .btn-sm .material-symbols-outlined { font-size: 16px; }
-.btn-icon { background: none; border: none; cursor: pointer; padding: 4px 6px; font-size: 14px; border-radius: 6px; transition: background .15s; display: inline-flex; align-items: center; }
+.btn-icon { background: none; border: none; cursor: pointer; padding: 4px 6px; font-size: 14px; border-radius: 6px; transition: background .15s, color .15s; display: inline-flex; align-items: center; color: var(--text-muted); }
 .btn-icon .material-symbols-outlined { font-size: 18px; }
-.btn-icon:hover { background: #f1f5f9; }
+.btn-icon:hover { background: #f1f5f9; color: var(--text); }
 .btn-icon.btn-del { color: var(--danger); }
 
 /* ═══════════════ Badges ═══════════════ */
@@ -660,6 +673,18 @@ html.dark .report-goal-item.done { background: #14532d33; }
   --border: #334155;
   --text: #e2e8f0;
   --text-muted: #94a3b8;
+  --muted: var(--text-muted);
+  --accent: var(--primary);
+  --bg-main: var(--bg);
+  --bg-secondary: #172033;
+  --bg-hover: #243043;
+  --text-main: var(--text);
+  --bg-card: var(--card);
+  --bg-sidebar: var(--sidebar);
+  --clr-text: var(--text);
+  --clr-muted: var(--text-muted);
+  --clr-border: var(--border);
+  --clr-accent: var(--primary);
   --shadow: 0 1px 3px rgba(0,0,0,.3);
   --shadow-md: 0 4px 12px rgba(0,0,0,.4);
 }
@@ -1138,11 +1163,11 @@ html.dark .report-goal-item.done { background: #14532d33; }
 .contact-avatar { width: 42px; height: 42px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .contact-avatar .material-symbols-outlined { font-size: 22px; }
 .contact-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.contact-info strong { font-size: 15px; }
+.contact-info strong { font-size: 15px; color: var(--text); }
 .badge-role { background: color-mix(in srgb, var(--purple) 15%, transparent); color: var(--purple); font-size: 11px; padding: 2px 8px; border-radius: 12px; }
 .contact-detail { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); margin: 0; }
 .contact-detail .material-symbols-outlined { font-size: 16px; }
-.badge-proj { font-size: 11px; padding: 2px 8px; border-radius: 12px; border: 2px solid; background: transparent; display: inline-block; }
+.badge-proj { font-size: 11px; padding: 2px 8px; border-radius: 12px; border: 2px solid; background: transparent; display: inline-block; color: var(--text); }
 
 /* ——— Environments ——— */
 .env-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
@@ -1155,6 +1180,7 @@ html.dark .report-goal-item.done { background: #14532d33; }
 .env-icon { width: 40px; height: 40px; border-radius: 10px; background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .env-icon .material-symbols-outlined { font-size: 22px; }
 .env-head > div:nth-child(2) { flex: 1; }
+.env-head strong { color: var(--text); }
 .env-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
 .badge-env-dev { background: #dbeafe; color: #2563eb; font-size: 11px; padding: 2px 8px; border-radius: 12px; }
 .badge-env-test { background: #fef3c7; color: #b45309; font-size: 11px; padding: 2px 8px; border-radius: 12px; }
