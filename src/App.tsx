@@ -620,6 +620,10 @@ function App() {
   const [spFolderStack, setSpFolderStack] = useState<{ id: string; name: string }[]>([]);
   const [spNewFolderName, setSpNewFolderName] = useState('');
 
+  /* ── Update Checker ── */
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [updateChecking, setUpdateChecking] = useState(false);
+
   /* ── Reset Data ── */
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState('');
@@ -4830,19 +4834,16 @@ function App() {
 
           {/* ═══════ UPDATES ═══════ */}
           {view === 'updates' && (() => {
-            const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
-            const [checking, setChecking] = useState(false);
-
             const doCheck = async () => {
               if (!api) return;
-              setChecking(true);
+              setUpdateChecking(true);
               try {
                 const info = await api.checkForUpdates();
                 setUpdateInfo(info);
               } catch (err: unknown) {
                 setUpdateInfo({ upToDate: true, currentVersion: 'N/A', latestVersion: 'N/A', error: String(err) });
               } finally {
-                setChecking(false);
+                setUpdateChecking(false);
               }
             };
 
@@ -4868,8 +4869,8 @@ function App() {
               {/* Check button */}
               <div className="card mb-20">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                  <button className="btn-primary" onClick={doCheck} disabled={checking}>
-                    {mi(checking ? 'hourglass_empty' : 'refresh')} {checking ? 'Verifica in corso...' : 'Verifica aggiornamenti'}
+                  <button className="btn-primary" onClick={doCheck} disabled={updateChecking}>
+                    {mi(updateChecking ? 'hourglass_empty' : 'refresh')} {updateChecking ? 'Verifica in corso...' : 'Verifica aggiornamenti'}
                   </button>
                   <button className="btn-secondary" onClick={() => api?.openExternal(`https://github.com/marco-giuseppe-starace/flowdesk/releases`)}>
                     {mi('open_in_new')} Apri pagina Release su GitHub
