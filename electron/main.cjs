@@ -1504,6 +1504,52 @@ async function importDb() {
   }
 }
 
+/* ═══════ Update Checker ═══════ */
+const GITHUB_REPO = 'marco-giuseppe-starace/flowdesk';
+
+ipcMain.handle('app:checkForUpdates', async () => {
+  const https = require('https');
+  const currentVersion = app.getVersion();
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'api.github.com',
+      path: `/repos/${GITHUB_REPO}/releases/latest`,
+      headers: { 'User-Agent': `FlowDesk/${currentVersion}` },
+    };
+    https.get(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          if (res.statusCode === 404) return resolve({ upToDate: true, currentVersion, latestVersion: currentVersion, message: 'Nessuna release trovata su GitHub.' });
+          const json = JSON.parse(data);
+          const latestTag = (json.tag_name || '').replace(/^v/, '');
+          const upToDate = latestTag === currentVersion || !latestTag;
+          const asset = (json.assets || []).find(a => a.name && a.name.endsWith('.exe'));
+          resolve({
+            upToDate,
+            currentVersion,
+            latestVersion: latestTag || currentVersion,
+            releaseUrl: json.html_url || `https://github.com/${GITHUB_REPO}/releases`,
+            downloadUrl: asset ? asset.browser_download_url : null,
+            releaseName: json.name || '',
+            publishedAt: json.published_at || '',
+            body: json.body || '',
+          });
+        } catch {
+          resolve({ upToDate: true, currentVersion, latestVersion: currentVersion, error: 'Impossibile leggere la risposta di GitHub.' });
+        }
+      });
+    }).on('error', (err) => {
+      resolve({ upToDate: true, currentVersion, latestVersion: currentVersion, error: `Errore di rete: ${err.message}` });
+    });
+  });
+});
+
+ipcMain.handle('app:openExternal', (_, url) => {
+  shell.openExternal(url);
+});
+
 app.whenReady().then(async () => {
   let dbFolder;
   if (isFirstRun()) {

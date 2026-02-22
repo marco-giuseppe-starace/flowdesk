@@ -197,6 +197,10 @@ contextBridge.exposeInMainWorld('flowdesk', {
   spDeleteItem: (siteId, driveId, itemId) => ipcRenderer.invoke('sp:deleteItem', siteId, driveId, itemId),
   spCreateFolder: (siteId, driveId, folderId, folderName) => ipcRenderer.invoke('sp:createFolder', siteId, driveId, folderId, folderName),
 
+  /* Update checker */
+  checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
+  openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
+
   /* Menu events */
   onNavigate: (cb) => ipcRenderer.on('navigate', (_e, view) => cb(view)),
   onToggleDark: (cb) => ipcRenderer.on('toggle-dark', () => cb()),

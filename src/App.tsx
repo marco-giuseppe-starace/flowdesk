@@ -17,7 +17,20 @@ type EnvStatus = 'Attivo' | 'Inattivo' | 'Manutenzione';
 type BugSeverity = 'Critical' | 'High' | 'Medium' | 'Low';
 type BugStatus = 'Aperto' | 'In corso' | 'Risolto' | 'Chiuso';
 type LearningCategory = 'Corso' | 'Certificazione' | 'Articolo' | 'Video' | 'Libro' | 'Altro';
-type ViewName = 'dashboard' | 'tasks' | 'timer' | 'changes' | 'notes' | 'goals' | 'projects' | 'search' | 'history' | 'report' | 'snippets' | 'bookmarks' | 'backlog' | 'guide' | 'contacts' | 'environments' | 'retros' | 'bugs' | 'learning' | 'checklists' | 'analyzer' | 'fdhub' | 'sharepoint';
+type ViewName = 'dashboard' | 'tasks' | 'timer' | 'changes' | 'notes' | 'goals' | 'projects' | 'search' | 'history' | 'report' | 'snippets' | 'bookmarks' | 'backlog' | 'guide' | 'contacts' | 'environments' | 'retros' | 'bugs' | 'learning' | 'checklists' | 'analyzer' | 'fdhub' | 'sharepoint' | 'updates';
+
+type UpdateInfo = {
+  upToDate: boolean;
+  currentVersion: string;
+  latestVersion: string;
+  releaseUrl?: string;
+  downloadUrl?: string;
+  releaseName?: string;
+  publishedAt?: string;
+  body?: string;
+  error?: string;
+  message?: string;
+};
 
 type Task = { id: number; title: string; description: string; plannedMinutes: number; priority: Priority; status: TaskStatus; scheduledDate: string; createdAt: string; projectId?: number | null };
 type Session = { id: number; taskId: number; taskTitle: string; startedAt: string; endedAt?: string; durationMinutes?: number; note?: string };
@@ -246,6 +259,9 @@ type FlowdeskApi = {
   spUploadFile: (siteId: string, driveId: string, folderId?: string) => Promise<{ ok: boolean; id?: string; name?: string; webUrl?: string; size?: number } | null>;
   spDeleteItem: (siteId: string, driveId: string, itemId: string) => Promise<{ ok: boolean }>;
   spCreateFolder: (siteId: string, driveId: string, folderId: string | undefined, folderName: string) => Promise<{ ok: boolean; id?: string; name?: string }>;
+  /* Update checker */
+  checkForUpdates: () => Promise<UpdateInfo>;
+  openExternal: (url: string) => Promise<void>;
 };
 
 declare global { interface Window { flowdesk?: FlowdeskApi } }
@@ -297,6 +313,7 @@ const NAV: { id: ViewName; icon: string; label: string }[] = [
   { id: 'report', icon: 'description', label: 'Report' },
   // ── Utility ──
   { id: 'search', icon: 'search', label: 'Ricerca' },
+  { id: 'updates', icon: 'system_update', label: 'Aggiornamenti' },
   { id: 'guide', icon: 'help', label: 'Guida' },
 ];
 
@@ -4807,6 +4824,131 @@ function App() {
                   )}
                 </div>
               )}
+            </div>
+            );
+          })()}
+
+          {/* ═══════ UPDATES ═══════ */}
+          {view === 'updates' && (() => {
+            const [updateInfo, setUpdateInfo] = React.useState<UpdateInfo | null>(null);
+            const [checking, setChecking] = React.useState(false);
+
+            const doCheck = async () => {
+              if (!api) return;
+              setChecking(true);
+              try {
+                const info = await api.checkForUpdates();
+                setUpdateInfo(info);
+              } catch (err: unknown) {
+                setUpdateInfo({ upToDate: true, currentVersion: 'N/A', latestVersion: 'N/A', error: String(err) });
+              } finally {
+                setChecking(false);
+              }
+            };
+
+            return (
+            <div className="view">
+              <div className="view-header">
+                <div><h2 className="view-title">Aggiornamenti</h2><p className="view-sub">Verifica se è disponibile una nuova versione di FlowDesk</p></div>
+              </div>
+
+              {/* Current version card */}
+              <div className="card mb-20">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: 48, color: 'var(--clr-accent)' }}>system_update</span>
+                  <div>
+                    <h3 style={{ margin: 0 }}>FlowDesk</h3>
+                    <p style={{ margin: '4px 0 0', color: 'var(--clr-muted)', fontSize: '0.95rem' }}>
+                      Versione installata: <strong style={{ color: 'var(--clr-text)' }}>v{appVersion || '...'}</strong>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Check button */}
+              <div className="card mb-20">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  <button className="btn-primary" onClick={doCheck} disabled={checking}>
+                    {mi(checking ? 'hourglass_empty' : 'refresh')} {checking ? 'Verifica in corso...' : 'Verifica aggiornamenti'}
+                  </button>
+                  <button className="btn-secondary" onClick={() => api?.openExternal(`https://github.com/marco-giuseppe-starace/flowdesk/releases`)}>
+                    {mi('open_in_new')} Apri pagina Release su GitHub
+                  </button>
+                </div>
+              </div>
+
+              {/* Result */}
+              {updateInfo && (
+                <div className="card mb-20">
+                  {updateInfo.error ? (
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                      <span className="material-symbols-rounded" style={{ fontSize: 28, color: '#e67e22', flexShrink: 0 }}>warning</span>
+                      <div>
+                        <strong>Impossibile verificare gli aggiornamenti</strong>
+                        <p style={{ margin: '4px 0 0', color: 'var(--clr-muted)' }}>{updateInfo.error}</p>
+                        <p style={{ margin: '8px 0 0', fontSize: '0.85rem', color: 'var(--clr-muted)' }}>Controlla la connessione internet e riprova, oppure visita direttamente la pagina delle release su GitHub.</p>
+                      </div>
+                    </div>
+                  ) : updateInfo.upToDate ? (
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                      <span className="material-symbols-rounded" style={{ fontSize: 28, color: '#27ae60', flexShrink: 0 }}>check_circle</span>
+                      <div>
+                        <strong style={{ color: '#27ae60' }}>Sei aggiornato!</strong>
+                        <p style={{ margin: '4px 0 0', color: 'var(--clr-muted)' }}>
+                          FlowDesk <strong>v{updateInfo.currentVersion}</strong> è l'ultima versione disponibile.
+                          {updateInfo.message && <><br />{updateInfo.message}</>}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 16 }}>
+                        <span className="material-symbols-rounded" style={{ fontSize: 28, color: 'var(--clr-accent)', flexShrink: 0 }}>upgrade</span>
+                        <div>
+                          <strong style={{ color: 'var(--clr-accent)' }}>Nuova versione disponibile!</strong>
+                          <p style={{ margin: '4px 0 0', color: 'var(--clr-muted)' }}>
+                            La versione <strong style={{ color: 'var(--clr-text)' }}>v{updateInfo.latestVersion}</strong> è disponibile. Tu hai la <strong>v{updateInfo.currentVersion}</strong>.
+                          </p>
+                          {updateInfo.releaseName && <p style={{ margin: '4px 0 0', fontWeight: 600 }}>{updateInfo.releaseName}</p>}
+                          {updateInfo.publishedAt && <p style={{ margin: '2px 0 0', fontSize: '0.85rem', color: 'var(--clr-muted)' }}>Pubblicata il {new Date(updateInfo.publishedAt).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })}</p>}
+                        </div>
+                      </div>
+                      {updateInfo.body && (
+                        <div style={{ background: 'var(--bg-sidebar)', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontSize: '0.9rem', lineHeight: 1.6, maxHeight: 300, overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
+                          {updateInfo.body}
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                        {updateInfo.downloadUrl && (
+                          <button className="btn-success" onClick={() => api?.openExternal(updateInfo.downloadUrl!)}>
+                            {mi('download')} Scarica FlowDesk v{updateInfo.latestVersion}
+                          </button>
+                        )}
+                        {updateInfo.releaseUrl && (
+                          <button className="btn-secondary" onClick={() => api?.openExternal(updateInfo.releaseUrl!)}>
+                            {mi('open_in_new')} Vedi release su GitHub
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Info */}
+              <div className="card" style={{ border: '1px solid var(--clr-border)' }}>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: 24, color: 'var(--clr-accent)', flexShrink: 0, marginTop: 2 }}>info</span>
+                  <div style={{ fontSize: '0.88rem', lineHeight: 1.6, color: 'var(--clr-muted)' }}>
+                    <strong style={{ color: 'var(--clr-text)' }}>Come aggiornare FlowDesk</strong><br />
+                    1. Clicca <em>"Scarica"</em> o visita la pagina delle release<br />
+                    2. Scarica il file <code>.exe</code> dell'ultima versione<br />
+                    3. Chiudi FlowDesk<br />
+                    4. Esegui l'installer — sovrascriverà la versione precedente mantenendo i tuoi dati<br />
+                    5. Riavvia FlowDesk ✓
+                  </div>
+                </div>
+              </div>
             </div>
             );
           })()}
