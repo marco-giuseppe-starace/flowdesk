@@ -1887,6 +1887,19 @@ function App() {
                 <div><h2 className="view-title">Timer</h2><p className="view-sub">Traccia il tempo o usa il Pomodoro (25/5)</p></div>
               </div>
 
+              {/* Info banner */}
+              <div className="card mb-20" style={{ background: 'var(--bg-card)', border: '1px solid var(--clr-border)' }}>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: 28, color: 'var(--clr-accent)', flexShrink: 0, marginTop: 2 }}>info</span>
+                  <div style={{ fontSize: '0.92rem', lineHeight: 1.6, color: 'var(--clr-muted)' }}>
+                    <strong style={{ color: 'var(--clr-text)' }}>Come funziona il Timer?</strong><br />
+                    Seleziona un task dalla lista e premi <em>Avvia</em> per iniziare a tracciare il tempo di lavoro. Al termine, premi <em>Ferma sessione</em> e opzionalmente aggiungi una nota. Le sessioni vengono registrate e contribuiscono alle statistiche e al Report giornaliero.<br /><br />
+                    <strong style={{ color: 'var(--clr-text)' }}>Cos'è il Pomodoro?</strong><br />
+                    La <strong>Tecnica del Pomodoro</strong> alterna cicli di <strong>25 minuti di lavoro concentrato</strong> a <strong>5 minuti di pausa</strong>. Riduce l'affaticamento mentale, elimina il multitasking e aumenta la produttività. Dopo 4 cicli è consigliata una pausa più lunga (15-30 min). Il badge nella sidebar mostra il tempo rimanente.
+                  </div>
+                </div>
+              </div>
+
               {/* Pomodoro card */}
               <div className="card mb-20">
                 <div className="card-head">
