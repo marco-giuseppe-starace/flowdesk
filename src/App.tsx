@@ -1,14 +1,14 @@
-import './App.css';
+﻿import './App.css';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 
-/* ═══════════════════════ Types ═══════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• Types â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 type TaskStatus = 'Todo' | 'Doing' | 'Done';
 type Priority = 'High' | 'Medium' | 'Low';
 type Tool = 'PowerApps' | 'PowerAutomate' | 'PowerBI' | 'Teams' | 'Outlook' | 'OneNote' | 'SharePoint' | 'Excel' | 'Altro';
-type ChangeType = 'Nuova funzionalità' | 'Correzione bug' | 'Modifica' | 'Configurazione' | 'Report' | 'UI/UX' | 'Integrazione' | 'Altro';
+type ChangeType = 'Nuova funzionalitÃ ' | 'Correzione bug' | 'Modifica' | 'Configurazione' | 'Report' | 'UI/UX' | 'Integrazione' | 'Altro';
 type NoteCategory = 'Riunione' | 'Call' | 'Idea' | 'Promemoria' | 'Problema' | 'Generale';
 type SnippetLang = 'PowerFx' | 'DAX' | 'M' | 'JSON' | 'SQL' | 'JavaScript' | 'TypeScript' | 'HTML' | 'CSS' | 'Altro';
 type BookmarkCat = 'Ambiente' | 'Documentazione' | 'Repository' | 'SharePoint' | 'API' | 'Altro';
@@ -67,7 +67,7 @@ type FdhubCommit = { id: number; repoId: number; message: string; tag: string; f
 type FdhubRepoStats = { totalCommits: number; latestCommit: FdhubCommit | null; firstCommit: FdhubCommit | null };
 type Attachment = { id: number; entityType: string; entityId: number; fileName: string; filePath: string; fileSize: number; mimeType: string; createdAt: string };
 
-/* ═══ SharePoint types ═══ */
+/* â•â•â• SharePoint types â•â•â• */
 type SpConfig = { clientId: string; tenantId: string; siteUrl: string };
 type SpUser = { name: string; email: string };
 type SpSite = { id: string; name: string; url: string; description: string };
@@ -78,7 +78,7 @@ type SpDrive = { id: string; name: string; description: string; webUrl: string; 
 type SpDriveItem = { id: string; name: string; isFolder: boolean; size: number; mimeType: string; webUrl: string; downloadUrl: string; lastModified: string; childCount: number; createdBy: string };
 type SpTab = 'lists' | 'documents' | 'config';
 
-/* ═══ Power Apps Analyzer types ═══ */
+/* â•â•â• Power Apps Analyzer types â•â•â• */
 type MsappFormulaComplexity = { length: number; nestingDepth: number; functionCount: number; uniqueFunctions: number; ifCount: number; semicolonCount?: number; score: number };
 type MsappFormula = { screen: string; control: string; controlType: string; controlPath: string; property: string; formula: string; complexity?: MsappFormulaComplexity };
 type MsappDataOp = { screen: string; control: string; controlPath: string; property: string; operation: string; target: string; fullExpression: string; formula: string };
@@ -266,10 +266,10 @@ type FlowdeskApi = {
 
 declare global { interface Window { flowdesk?: FlowdeskApi } }
 
-/* ═══════════════════════ Constants ═══════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• Constants â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 const TOOLS: Tool[] = ['PowerApps', 'PowerAutomate', 'PowerBI', 'Teams', 'Outlook', 'OneNote', 'SharePoint', 'Excel', 'Altro'];
-const CHANGE_TYPES: ChangeType[] = ['Nuova funzionalità', 'Correzione bug', 'Modifica', 'Configurazione', 'Report', 'UI/UX', 'Integrazione', 'Altro'];
+const CHANGE_TYPES: ChangeType[] = ['Nuova funzionalitÃ ', 'Correzione bug', 'Modifica', 'Configurazione', 'Report', 'UI/UX', 'Integrazione', 'Altro'];
 const NOTE_CATS: NoteCategory[] = ['Riunione', 'Call', 'Idea', 'Promemoria', 'Problema', 'Generale'];
 const PRIORITIES: Priority[] = ['High', 'Medium', 'Low'];
 const PRI_LABEL: Record<Priority, string> = { High: 'Alta', Medium: 'Media', Low: 'Bassa' };
@@ -285,39 +285,39 @@ const LEARNING_CATS: LearningCategory[] = ['Corso', 'Certificazione', 'Articolo'
 const SEV_LABEL: Record<BugSeverity, string> = { Critical: 'Critico', High: 'Alto', Medium: 'Medio', Low: 'Basso' };
 
 const NAV: { id: ViewName; icon: string; label: string }[] = [
-  // ── Pianificazione ──
+  // â”€â”€ Pianificazione â”€â”€
   { id: 'dashboard', icon: 'dashboard', label: 'Dashboard' },
   { id: 'goals', icon: 'flag', label: 'Obiettivi' },
   { id: 'projects', icon: 'folder', label: 'Progetti' },
   { id: 'environments', icon: 'cloud', label: 'Ambienti' },
   { id: 'contacts', icon: 'contacts', label: 'Contatti' },
-  // ── Esecuzione ──
-  { id: 'tasks', icon: 'task_alt', label: 'Attività' },
+  // â”€â”€ Esecuzione â”€â”€
+  { id: 'tasks', icon: 'task_alt', label: 'AttivitÃ ' },
   { id: 'backlog', icon: 'inventory_2', label: 'Backlog' },
   { id: 'timer', icon: 'timer', label: 'Timer' },
   { id: 'changes', icon: 'assignment', label: 'Registro' },
   { id: 'bugs', icon: 'bug_report', label: 'Bug Tracker' },
   { id: 'checklists', icon: 'checklist', label: 'Checklist' },
-  // ── Conoscenza ──
+  // â”€â”€ Conoscenza â”€â”€
   { id: 'notes', icon: 'edit_note', label: 'Appunti' },
   { id: 'snippets', icon: 'code', label: 'Snippets' },
   { id: 'bookmarks', icon: 'bookmark', label: 'Link utili' },
   { id: 'learning', icon: 'school', label: 'Formazione' },
-  // ── Analisi ──
+  // â”€â”€ Analisi â”€â”€
   { id: 'analyzer', icon: 'analytics', label: 'App Analyzer' },
   { id: 'fdhub', icon: 'hub', label: 'FDHub' },
   { id: 'sharepoint', icon: 'share', label: 'SharePoint' },
-  // ── Revisione ──
+  // â”€â”€ Revisione â”€â”€
   { id: 'retros', icon: 'psychology', label: 'Retrospettive' },
   { id: 'history', icon: 'calendar_month', label: 'Storico' },
   { id: 'report', icon: 'description', label: 'Report' },
-  // ── Utility ──
+  // â”€â”€ Utility â”€â”€
   { id: 'search', icon: 'search', label: 'Ricerca' },
   { id: 'updates', icon: 'system_update', label: 'Aggiornamenti' },
   { id: 'guide', icon: 'help', label: 'Guida' },
 ];
 
-/* ═══════════════════════ Helpers ═══════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• Helpers â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 function todayStr() {
   const d = new Date();
@@ -348,7 +348,7 @@ function greeting() {
 
 function dateLong(iso: string) {
   const months = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
-  const days = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
+  const days = ['Domenica', 'LunedÃ¬', 'MartedÃ¬', 'MercoledÃ¬', 'GiovedÃ¬', 'VenerdÃ¬', 'Sabato'];
   const [y, m, d] = iso.split('-');
   const dt = new Date(Number(y), Number(m) - 1, Number(d));
   return `${days[dt.getDay()]} ${parseInt(d)} ${months[parseInt(m) - 1]} ${y}`;
@@ -396,7 +396,7 @@ function downloadFile(content: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-/* ═══════════════════════ App ═══════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• App â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 function App() {
   const api = window.flowdesk;
@@ -404,7 +404,7 @@ function App() {
   const [view, setView] = useState<ViewName>('dashboard');
   const [today] = useState(todayStr());
 
-  /* ── Core data ── */
+  /* â”€â”€ Core data â”€â”€ */
   const [tasks, setTasks] = useState<Task[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [changes, setChanges] = useState<ChangeEntry[]>([]);
@@ -412,16 +412,16 @@ function App() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [activeSession, setActiveSession] = useState<Session | null>(null);
 
-  /* ── Task form ── */
+  /* â”€â”€ Task form â”€â”€ */
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDesc, setTaskDesc] = useState('');
   const [taskMin, setTaskMin] = useState(60);
   const [taskPri, setTaskPri] = useState<Priority>('Medium');
 
-  /* ── Stop note ── */
+  /* â”€â”€ Stop note â”€â”€ */
   const [stopNote, setStopNote] = useState('');
 
-  /* ── Change form ── */
+  /* â”€â”€ Change form â”€â”€ */
   const [chgTool, setChgTool] = useState<Tool>('PowerApps');
   const [chgType, setChgType] = useState<ChangeType>('Modifica');
   const [chgArtifact, setChgArtifact] = useState('');
@@ -431,17 +431,17 @@ function App() {
   const [chgTest, setChgTest] = useState('Non testato');
   const [chgTaskId, setChgTaskId] = useState<number | ''>('');
 
-  /* ── Note form ── */
+  /* â”€â”€ Note form â”€â”€ */
   const [noteCat, setNoteCat] = useState<NoteCategory>('Generale');
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
 
-  /* ── Goal form ── */
+  /* â”€â”€ Goal form â”€â”€ */
   const [goalText, setGoalText] = useState('');
   const [editingGoalId, setEditingGoalId] = useState<number | null>(null);
   const [editingGoalText, setEditingGoalText] = useState('');
 
-  /* ── Projects ── */
+  /* â”€â”€ Projects â”€â”€ */
   const [projects, setProjects] = useState<Project[]>([]);
   const [projName, setProjName] = useState('');
   const [projDesc, setProjDesc] = useState('');
@@ -453,7 +453,7 @@ function App() {
   const [editProjDesc, setEditProjDesc] = useState('');
   const [editProjColor, setEditProjColor] = useState('');
 
-  /* ── Tags ── */
+  /* â”€â”€ Tags â”€â”€ */
   const [tags, setTags] = useState<Tag[]>([]);
   const [tagName, setTagName] = useState('');
   const [tagColor, setTagColor] = useState(TAG_COLORS[0]);
@@ -462,7 +462,7 @@ function App() {
   const [editTagName, setEditTagName] = useState('');
   const [editTagColor, setEditTagColor] = useState('');
 
-  /* ── Templates ── */
+  /* â”€â”€ Templates â”€â”€ */
   const [templates, setTemplates] = useState<Template[]>([]);
   const [tplTitle, setTplTitle] = useState('');
   const [tplDesc, setTplDesc] = useState('');
@@ -471,18 +471,18 @@ function App() {
   const [tplTool, setTplTool] = useState('');
   const [tplProjId, setTplProjId] = useState<number | ''>('');
 
-  /* ── Task project selector ── */
+  /* â”€â”€ Task project selector â”€â”€ */
   const [taskProjId, setTaskProjId] = useState<number | ''>('');
   const [chgProjId, setChgProjId] = useState<number | ''>('');
 
-  /* ── Dark mode ── */
+  /* â”€â”€ Dark mode â”€â”€ */
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('fd-dark') === '1');
 
-  /* ── Edit modals ── */
+  /* â”€â”€ Edit modals â”€â”€ */
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [editNote, setEditNote] = useState<Note | null>(null);
 
-  /* ── Snippets ── */
+  /* â”€â”€ Snippets â”€â”€ */
   const [snippets, setSnippets] = useState<Snippet[]>([]);
   const [snipTitle, setSnipTitle] = useState('');
   const [snipLang, setSnipLang] = useState<SnippetLang>('PowerFx');
@@ -492,7 +492,7 @@ function App() {
   const [editSnippet, setEditSnippet] = useState<Snippet | null>(null);
   const [snipCopied, setSnipCopied] = useState<number | null>(null);
 
-  /* ── Bookmarks ── */
+  /* â”€â”€ Bookmarks â”€â”€ */
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [bmTitle, setBmTitle] = useState('');
   const [bmUrl, setBmUrl] = useState('');
@@ -502,14 +502,14 @@ function App() {
   const [bmFilter, setBmFilter] = useState<BookmarkCat | ''>('');
   const [editingBookmark, setEditingBookmark] = useState<Bookmark | null>(null);
 
-  /* ── Backlog ── */
+  /* â”€â”€ Backlog â”€â”€ */
   const [backlog, setBacklog] = useState<Task[]>([]);
 
-  /* ── Streak & Time Budget ── */
+  /* â”€â”€ Streak & Time Budget â”€â”€ */
   const [streak, setStreak] = useState<Streak>({ current: 0, longest: 0 });
   const [timeBudget, setTimeBudget] = useState<TimeBudget | null>(null);
 
-  /* ── Contacts ── */
+  /* â”€â”€ Contacts â”€â”€ */
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [ctName, setCtName] = useState('');
   const [ctRole, setCtRole] = useState('');
@@ -520,7 +520,7 @@ function App() {
   const [ctProjId, setCtProjId] = useState<number | ''>('');
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
 
-  /* ── Environments ── */
+  /* â”€â”€ Environments â”€â”€ */
   const [environments, setEnvironments] = useState<Environment[]>([]);
   const [envName, setEnvName] = useState('');
   const [envUrl, setEnvUrl] = useState('');
@@ -530,14 +530,14 @@ function App() {
   const [envProjId, setEnvProjId] = useState<number | ''>('');
   const [editingEnv, setEditingEnv] = useState<Environment | null>(null);
 
-  /* ── Retrospectives ── */
+  /* â”€â”€ Retrospectives â”€â”€ */
   const [retros, setRetros] = useState<Retrospective[]>([]);
   const [retroWell, setRetroWell] = useState('');
   const [retroImprove, setRetroImprove] = useState('');
   const [retroActions, setRetroActions] = useState('');
   const [editRetro, setEditRetro] = useState<Retrospective | null>(null);
 
-  /* ── Bugs ── */
+  /* â”€â”€ Bugs â”€â”€ */
   const [bugs, setBugs] = useState<Bug[]>([]);
   const [bugTitle, setBugTitle] = useState('');
   const [bugDesc, setBugDesc] = useState('');
@@ -547,7 +547,7 @@ function App() {
   const [bugFilter, setBugFilter] = useState<BugStatus | ''>('');
   const [editBug, setEditBug] = useState<Bug | null>(null);
 
-  /* ── Learning ── */
+  /* â”€â”€ Learning â”€â”€ */
   const [learningList, setLearningList] = useState<LearningItem[]>([]);
   const [learnTitle, setLearnTitle] = useState('');
   const [learnCat, setLearnCat] = useState<LearningCategory>('Corso');
@@ -556,7 +556,7 @@ function App() {
   const [learnFilter, setLearnFilter] = useState<LearningCategory | ''>('');
   const [editLearn, setEditLearn] = useState<LearningItem | null>(null);
 
-  /* ── Checklists ── */
+  /* â”€â”€ Checklists â”€â”€ */
   const [checklists, setChecklists] = useState<Checklist[]>([]);
   const [clTitle, setClTitle] = useState('');
   const [clDesc, setClDesc] = useState('');
@@ -570,7 +570,7 @@ function App() {
   const [editingChangeId, setEditingChangeId] = useState<number | null>(null);
   const [editChange, setEditChange] = useState<Partial<ChangeEntry>>({});
 
-  /* ── FDHub ── */
+  /* â”€â”€ FDHub â”€â”€ */
   const [fdhubRepos, setFdhubRepos] = useState<FdhubRepo[]>([]);
   const [fdhubRepoName, setFdhubRepoName] = useState('');
   const [fdhubRepoDesc, setFdhubRepoDesc] = useState('');
@@ -587,7 +587,7 @@ function App() {
   const [fdhubCommitting, setFdhubCommitting] = useState(false);
   const [editingFdhubRepo, setEditingFdhubRepo] = useState<FdhubRepo | null>(null);
 
-  /* ── Power Apps Analyzer ── */
+  /* â”€â”€ Power Apps Analyzer â”€â”€ */
   const [msappData, setMsappData] = useState<MsappParsed | null>(null);
   const [msappLoading, setMsappLoading] = useState(false);
   const [msappTab, setMsappTab] = useState<AnalyzerTab>('overview');
@@ -597,7 +597,7 @@ function App() {
   const [msappExpandedScreen, setMsappExpandedScreen] = useState<string | null>(null);
   const [msappExpandedFormula, setMsappExpandedFormula] = useState<number | null>(null);
 
-  /* ── SharePoint ── */
+  /* â”€â”€ SharePoint â”€â”€ */
   const [spTab, setSpTab] = useState<SpTab>('config');
   const [spCfg, setSpCfg] = useState<SpConfig>({ clientId: '', tenantId: '', siteUrl: '' });
   const [spConnected, setSpConnected] = useState(false);
@@ -620,24 +620,24 @@ function App() {
   const [spFolderStack, setSpFolderStack] = useState<{ id: string; name: string }[]>([]);
   const [spNewFolderName, setSpNewFolderName] = useState('');
 
-  /* ── Update Checker ── */
+  /* â”€â”€ Update Checker â”€â”€ */
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateChecking, setUpdateChecking] = useState(false);
 
-  /* ── Reset Data ── */
+  /* â”€â”€ Reset Data â”€â”€ */
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState('');
   const [resetDone, setResetDone] = useState(false);
 
-  /* ── Command Palette ── */
+  /* â”€â”€ Command Palette â”€â”€ */
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState('');
   const cmdRef = useRef<HTMLInputElement>(null);
 
-  /* ── App version ── */
+  /* â”€â”€ App version â”€â”€ */
   const [appVersion, setAppVersion] = useState('0.0.0');
 
-  /* ── Attachments cache ── */
+  /* â”€â”€ Attachments cache â”€â”€ */
   const [attachmentsMap, setAttachmentsMap] = useState<Record<string, Attachment[]>>({});
 
   const loadAttachments = useCallback(async (entityType: string, entityId: number) => {
@@ -686,29 +686,29 @@ function App() {
     );
   }, [api, attachmentsMap, loadAttachments]);
 
-  /* ── Pomodoro ── */
+  /* â”€â”€ Pomodoro â”€â”€ */
   const [pomoActive, setPomoActive] = useState(false);
   const [pomoSec, setPomoSec] = useState(25 * 60);
   const [pomoPhase, setPomoPhase] = useState<'focus' | 'break'>('focus');
   const [pomoCycles, setPomoCycles] = useState(0);
   const pomoRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  /* ── Stats ── */
+  /* â”€â”€ Stats â”€â”€ */
   const [statsWeekOff, setStatsWeekOff] = useState(0);
   const [weekStats, setWeekStats] = useState<WeekStats | null>(null);
 
-  /* ── Search ── */
+  /* â”€â”€ Search â”€â”€ */
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
 
-  /* ── History ── */
+  /* â”€â”€ History â”€â”€ */
   const [histYear, setHistYear] = useState(new Date().getFullYear());
   const [histMonth, setHistMonth] = useState(new Date().getMonth() + 1);
   const [activeDays, setActiveDays] = useState<string[]>([]);
   const [histDay, setHistDay] = useState<string | null>(null);
   const [daySummary, setDaySummary] = useState<DaySummary | null>(null);
 
-  /* ── Report ── */
+  /* â”€â”€ Report â”€â”€ */
   const [rptDate, setRptDate] = useState(today);
   const [rptTasks, setRptTasks] = useState<Task[]>([]);
   const [rptSessions, setRptSessions] = useState<Session[]>([]);
@@ -717,12 +717,12 @@ function App() {
   const [rptGoals, setRptGoals] = useState<Goal[]>([]);
   const [rptCopied, setRptCopied] = useState(false);
 
-  /* ── Derived ── */
+  /* â”€â”€ Derived â”€â”€ */
   const tasksDone = useMemo(() => tasks.filter(t => t.status === 'Done').length, [tasks]);
   const totalTracked = useMemo(() => sessions.reduce((a, s) => a + (s.durationMinutes || 0), 0), [sessions]);
   const goalsDone = useMemo(() => goals.filter(g => g.isDone).length, [goals]);
 
-  /* ══════════════════ Data fetching ══════════════════ */
+  /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• Data fetching â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
   const refreshAll = useCallback(async () => {
     if (!api) return;
@@ -792,8 +792,8 @@ function App() {
   const prevPomoPhaseRef = useRef(pomoPhase);
   useEffect(() => {
     if (prevPomoPhaseRef.current !== pomoPhase && pomoActive && api) {
-      if (pomoPhase === 'break') void api.notify('🍅 Pomodoro completato!', 'Tempo per una pausa di 5 minuti.');
-      else void api.notify('⏱ Pausa finita!', 'Inizia un nuovo ciclo focus.');
+      if (pomoPhase === 'break') void api.notify('ðŸ… Pomodoro completato!', 'Tempo per una pausa di 5 minuti.');
+      else void api.notify('â± Pausa finita!', 'Inizia un nuovo ciclo focus.');
     }
     prevPomoPhaseRef.current = pomoPhase;
   }, [pomoPhase, pomoActive, api]);
@@ -835,7 +835,7 @@ function App() {
     })();
   }, [view, rptDate, api]);
 
-  // Keyboard shortcut: Ctrl+K → Command Palette
+  // Keyboard shortcut: Ctrl+K â†’ Command Palette
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
@@ -922,7 +922,7 @@ function App() {
     void api.fdhubListRepos().then(setFdhubRepos);
   }, [view, api]);
 
-  /* ══════════════════ Handlers ══════════════════ */
+  /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• Handlers â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
   async function onCreateTask(e: FormEvent) {
     e.preventDefault();
@@ -989,7 +989,7 @@ function App() {
   function stopPomodoro() { setPomoActive(false); setPomoSec(25 * 60); setPomoPhase('focus'); }
   function pomoLabel() { const m = Math.floor(pomoSec / 60); const s = pomoSec % 60; return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`; }
 
-  /* ── Project handlers ── */
+  /* â”€â”€ Project handlers â”€â”€ */
   async function onCreateProject(e: FormEvent) {
     e.preventDefault();
     if (!api || !projName.trim()) return;
@@ -1008,7 +1008,7 @@ function App() {
     await refreshAll();
   }
 
-  /* ── Tag handlers ── */
+  /* â”€â”€ Tag handlers â”€â”€ */
   async function onCreateTag(e: FormEvent) {
     e.preventDefault();
     if (!api || !tagName.trim()) return;
@@ -1028,7 +1028,7 @@ function App() {
   async function addTag(taskId: number, tagId: number) { if (!api) return; const updated = await api.addTagToTask(taskId, tagId); setTaskTagsMap(m => ({ ...m, [taskId]: updated })); }
   async function removeTag(taskId: number, tagId: number) { if (!api) return; const updated = await api.removeTagFromTask(taskId, tagId); setTaskTagsMap(m => ({ ...m, [taskId]: updated })); }
 
-  /* ── Template handlers ── */
+  /* â”€â”€ Template handlers â”€â”€ */
   async function onCreateTemplate(e: FormEvent) {
     e.preventDefault();
     if (!api || !tplTitle.trim()) return;
@@ -1039,7 +1039,7 @@ function App() {
   async function delTemplate(id: number) { if (!api) return; await api.deleteTemplate(id); await refreshAll(); }
   async function useTemplate(tplId: number) { if (!api) return; await api.createTaskFromTemplate(tplId, today); await refreshAll(); }
 
-  /* ── Edit handlers ── */
+  /* â”€â”€ Edit handlers â”€â”€ */
   async function onSaveEditTask() {
     if (!api || !editTask) return;
     await api.updateTask(editTask.id, { title: editTask.title, description: editTask.description, plannedMinutes: editTask.plannedMinutes, priority: editTask.priority, projectId: editTask.projectId });
@@ -1068,7 +1068,7 @@ function App() {
     setTimeout(() => downloadFile(changesCsv, `flowdesk_modifiche_${start}_${end}.csv`), 200);
   }
 
-  /* ── Snippet handlers ── */
+  /* â”€â”€ Snippet handlers â”€â”€ */
   async function onCreateSnippet(e: FormEvent) {
     e.preventDefault();
     if (!api || !snipTitle.trim() || !snipCode.trim()) return;
@@ -1088,7 +1088,7 @@ function App() {
     if (snipFilter) void api.listSnippets(snipFilter).then(setSnippets);
   }
 
-  /* ── Bookmark handlers ── */
+  /* â”€â”€ Bookmark handlers â”€â”€ */
   async function onCreateBookmark(e: FormEvent) {
     e.preventDefault();
     if (!api || !bmTitle.trim() || !bmUrl.trim()) return;
@@ -1108,10 +1108,10 @@ function App() {
     if (bmFilter) void api.listBookmarks(bmFilter).then(setBookmarks);
   }
 
-  /* ── Backlog handlers ── */
+  /* â”€â”€ Backlog handlers â”€â”€ */
   async function rescheduleToToday(id: number) { if (!api) return; await api.rescheduleTask(id, today); await refreshAll(); void api.getBacklog().then(setBacklog); }
 
-  /* ── Contacts handlers ── */
+  /* â”€â”€ Contacts handlers â”€â”€ */
   async function onCreateContact(e: FormEvent) {
     e.preventDefault();
     if (!api || !ctName.trim()) return;
@@ -1129,7 +1129,7 @@ function App() {
     void api.listContacts().then(setContacts);
   }
 
-  /* ── Environments handlers ── */
+  /* â”€â”€ Environments handlers â”€â”€ */
   async function onCreateEnv(e: FormEvent) {
     e.preventDefault();
     if (!api || !envName.trim()) return;
@@ -1148,7 +1148,7 @@ function App() {
     void api.listEnvironments().then(setEnvironments);
   }
 
-  /* ── Retrospectives handlers ── */
+  /* â”€â”€ Retrospectives handlers â”€â”€ */
   function currentWeekStart() {
     const d = new Date(); const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1);
     const mon = new Date(d.setDate(diff));
@@ -1169,7 +1169,7 @@ function App() {
   }
   async function delRetro(id: number) { if (!api) return; await api.deleteRetrospective(id); void api.listRetrospectives().then(setRetros); }
 
-  /* ── Bugs handlers ── */
+  /* â”€â”€ Bugs handlers â”€â”€ */
   async function onCreateBug(e: FormEvent) {
     e.preventDefault();
     if (!api || !bugTitle.trim()) return;
@@ -1186,7 +1186,7 @@ function App() {
   }
   async function delBug(id: number) { if (!api) return; await api.deleteBug(id); void api.listBugs(null, bugFilter || null).then(setBugs); }
 
-  /* ── Learning handlers ── */
+  /* â”€â”€ Learning handlers â”€â”€ */
   async function onCreateLearn(e: FormEvent) {
     e.preventDefault();
     if (!api || !learnTitle.trim()) return;
@@ -1203,7 +1203,7 @@ function App() {
   }
   async function delLearn(id: number) { if (!api) return; await api.deleteLearning(id); void api.listLearning(learnFilter || null).then(setLearningList); }
 
-  /* ── Checklists handlers ── */
+  /* â”€â”€ Checklists handlers â”€â”€ */
   async function onCreateChecklist(e: FormEvent) {
     e.preventDefault();
     if (!api || !clTitle.trim()) return;
@@ -1238,29 +1238,29 @@ function App() {
     void api.getChecklistItems(selectedCl).then(setClItems);
   }
 
-  /* ── Command Palette ── */
+  /* â”€â”€ Command Palette â”€â”€ */
   const cmdItems = useMemo(() => {
     const items: { icon: string; label: string; action: () => void }[] = [
       ...NAV.map(n => ({ icon: n.icon, label: `Vai a ${n.label}`, action: () => { setView(n.id); setCmdOpen(false); } })),
-      { icon: 'add', label: 'Nuova attività', action: () => { setView('tasks'); setCmdOpen(false); } },
+      { icon: 'add', label: 'Nuova attivitÃ ', action: () => { setView('tasks'); setCmdOpen(false); } },
       { icon: 'timer', label: 'Apri Timer', action: () => { setView('timer'); setCmdOpen(false); } },
       { icon: 'search', label: 'Cerca...', action: () => { setView('search'); setCmdOpen(false); } },
       { icon: 'code', label: 'Nuovo snippet', action: () => { setView('snippets'); setCmdOpen(false); } },
       { icon: 'bookmark', label: 'Nuovo link', action: () => { setView('bookmarks'); setCmdOpen(false); } },
       { icon: 'description', label: 'Genera report', action: () => { setView('report'); setCmdOpen(false); } },
-      { icon: 'dark_mode', label: darkMode ? 'Modalità chiara' : 'Modalità scura', action: () => { setDarkMode(d => !d); setCmdOpen(false); } },
+      { icon: 'dark_mode', label: darkMode ? 'ModalitÃ  chiara' : 'ModalitÃ  scura', action: () => { setDarkMode(d => !d); setCmdOpen(false); } },
     ];
     if (!cmdQuery.trim()) return items;
     const q = cmdQuery.toLowerCase();
     return items.filter(i => i.label.toLowerCase().includes(q));
   }, [cmdQuery, darkMode]);
 
-  /* ── Report generation ── */
+  /* â”€â”€ Report generation â”€â”€ */
   function genReport() {
     const done = rptTasks.filter(t => t.status === 'Done').length;
     const totalMin = rptSessions.reduce((a, s) => a + (s.durationMinutes || 0), 0);
     const gDone = rptGoals.filter(g => g.isDone).length;
-    let t = `REPORT GIORNALIERO — ${dateLong(rptDate)}\n\n`;
+    let t = `REPORT GIORNALIERO â€” ${dateLong(rptDate)}\n\n`;
     t += `RIEPILOGO\n`;
     t += `- Tempo tracciato: ${fmtMin(totalMin)}\n`;
     t += `- Attivita completate: ${done} su ${rptTasks.length}\n`;
@@ -1270,14 +1270,14 @@ function App() {
 
     if (rptGoals.length) {
       t += `\nOBIETTIVI\n`;
-      rptGoals.forEach(g => { t += `[${g.isDone ? '✓' : '○'}] ${g.text}\n`; });
+      rptGoals.forEach(g => { t += `[${g.isDone ? 'âœ“' : 'â—‹'}] ${g.text}\n`; });
     }
     if (rptTasks.length) {
       t += `\nATTIVITA\n`;
       rptTasks.forEach(tk => {
-        const icon = tk.status === 'Done' ? '✓' : tk.status === 'Doing' ? '→' : '○';
+        const icon = tk.status === 'Done' ? 'âœ“' : tk.status === 'Doing' ? 'â†’' : 'â—‹';
         const tMin = rptSessions.filter(s => s.taskId === tk.id).reduce((a, s) => a + (s.durationMinutes || 0), 0);
-        t += `[${icon}] ${tk.title} (${PRI_LABEL[tk.priority]}) — ${tMin ? fmtMin(tMin) + ' tracciati' : 'non iniziato'}\n`;
+        t += `[${icon}] ${tk.title} (${PRI_LABEL[tk.priority]}) â€” ${tMin ? fmtMin(tMin) + ' tracciati' : 'non iniziato'}\n`;
       });
     }
     if (rptSessions.length) {
@@ -1285,16 +1285,16 @@ function App() {
       rptSessions.forEach(s => {
         const st = new Date(s.startedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
         const en = s.endedAt ? new Date(s.endedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : 'in corso';
-        t += `${st}–${en} | ${s.taskTitle} (${s.durationMinutes || '?'}m)${s.note ? ' — ' + s.note : ''}\n`;
+        t += `${st}â€“${en} | ${s.taskTitle} (${s.durationMinutes || '?'}m)${s.note ? ' â€” ' + s.note : ''}\n`;
       });
     }
     if (rptChanges.length) {
       t += `\nMODIFICHE\n`;
-      rptChanges.forEach(c => { t += `[${TOOL_LABEL[c.tool]}] ${c.artifact} → ${c.changeType}: ${c.summary}\n`; });
+      rptChanges.forEach(c => { t += `[${TOOL_LABEL[c.tool]}] ${c.artifact} â†’ ${c.changeType}: ${c.summary}\n`; });
     }
     if (rptNotes.length) {
       t += `\nAPPUNTI\n`;
-      rptNotes.forEach(n => { t += `[${n.category}] ${n.title}${n.content ? ' — ' + n.content : ''}\n`; });
+      rptNotes.forEach(n => { t += `[${n.category}] ${n.title}${n.content ? ' â€” ' + n.content : ''}\n`; });
     }
     return t.trim();
   }
@@ -1305,24 +1305,24 @@ function App() {
     setTimeout(() => setRptCopied(false), 2000);
   }
 
-  /* ═══ No API ═══ */
+  /* â•â•â• No API â•â•â• */
   if (!api) {
     return (
       <div className="no-api">
         <div className="no-api-box">
           <h1>FlowDesk</h1>
           <p>Power Platform Work Tracker</p>
-          <p className="no-api-hint">Avvia in modalità desktop con <code>npm run dev</code></p>
+          <p className="no-api-hint">Avvia in modalitÃ  desktop con <code>npm run dev</code></p>
         </div>
       </div>
     );
   }
 
-  /* ═══════════════════════ Render ═══════════════════════ */
+  /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• Render â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
   return (
     <div className="app-shell">
 
-      {/* ─── Sidebar ─── */}
+      {/* â”€â”€â”€ Sidebar â”€â”€â”€ */}
       <aside className="sidebar">
         <div className="sidebar-logo">
           <h1>FlowDesk</h1>
@@ -1353,7 +1353,7 @@ function App() {
             </div>
           </div>
         )}
-        <button className="dark-toggle" onClick={() => setDarkMode(d => !d)} title={darkMode ? 'Modalità chiara' : 'Modalità scura'}>
+        <button className="dark-toggle" onClick={() => setDarkMode(d => !d)} title={darkMode ? 'ModalitÃ  chiara' : 'ModalitÃ  scura'}>
           {darkMode ? mi('light_mode') : mi('dark_mode')} {darkMode ? 'Chiaro' : 'Scuro'}
         </button>
         <div className="sidebar-footer">
@@ -1362,11 +1362,11 @@ function App() {
         </div>
       </aside>
 
-      {/* ─── Main ─── */}
+      {/* â”€â”€â”€ Main â”€â”€â”€ */}
       <main className="main-area">
         <div className="main-scroll">
 
-          {/* ═══════ DASHBOARD ═══════ */}
+          {/* â•â•â•â•â•â•â• DASHBOARD â•â•â•â•â•â•â• */}
           {view === 'dashboard' && (
             <div className="view">
               <div className="view-header">
@@ -1378,7 +1378,7 @@ function App() {
 
               <div className="kpi-row kpi-5">
                 <div className="kpi-card"><div className="kpi-icon ki-goals">{mi('flag')}</div><div><span className="kpi-value">{goalsDone}/{goals.length}</span><span className="kpi-label">Obiettivi</span></div></div>
-                <div className="kpi-card"><div className="kpi-icon ki-tasks">{mi('task_alt')}</div><div><span className="kpi-value">{tasksDone}/{tasks.length}</span><span className="kpi-label">Attività</span></div></div>
+                <div className="kpi-card"><div className="kpi-icon ki-tasks">{mi('task_alt')}</div><div><span className="kpi-value">{tasksDone}/{tasks.length}</span><span className="kpi-label">AttivitÃ </span></div></div>
                 <div className="kpi-card"><div className="kpi-icon ki-time">{mi('timer')}</div><div><span className="kpi-value">{fmtMin(totalTracked)}</span><span className="kpi-label">Tempo</span></div></div>
                 <div className="kpi-card"><div className="kpi-icon ki-changes">{mi('assignment')}</div><div><span className="kpi-value">{changes.length}</span><span className="kpi-label">Modifiche</span></div></div>
                 <div className="kpi-card"><div className="kpi-icon ki-streak">{mi('local_fire_department')}</div><div><span className="kpi-value">{streak.current}</span><span className="kpi-label">Streak {streak.longest > 0 ? `(max ${streak.longest})` : ''}</span></div></div>
@@ -1439,14 +1439,14 @@ function App() {
               {/* Backlog alert */}
               {backlog.length > 0 && (
                 <div className="backlog-alert mb-20" onClick={() => setView('backlog')}>
-                  {mi('warning')} <strong>{backlog.length}</strong> {backlog.length === 1 ? 'attività arretrata' : 'attività arretrate'} — <span className="backlog-alert-link">Gestisci backlog</span>
+                  {mi('warning')} <strong>{backlog.length}</strong> {backlog.length === 1 ? 'attivitÃ  arretrata' : 'attivitÃ  arretrate'} â€” <span className="backlog-alert-link">Gestisci backlog</span>
                 </div>
               )}
 
               <div className="grid-2">
                 <div className="card">
-                  <div className="card-head"><h3>Attività di oggi</h3><button className="btn-link" onClick={() => setView('tasks')}>Vedi tutte {mi('arrow_forward')}</button></div>
-                  {tasks.length === 0 && <p className="empty">Nessuna attività pianificata</p>}
+                  <div className="card-head"><h3>AttivitÃ  di oggi</h3><button className="btn-link" onClick={() => setView('tasks')}>Vedi tutte {mi('arrow_forward')}</button></div>
+                  {tasks.length === 0 && <p className="empty">Nessuna attivitÃ  pianificata</p>}
                   {tasks.slice(0, 6).map(t => (
                     <div key={t.id} className="mini-task">
                       <div className="mini-task-left">
@@ -1463,20 +1463,20 @@ function App() {
                   {changes.slice(0, 6).map(c => (
                     <div key={c.id} className="mini-change">
                       <span className={`badge badge-${toolCls(c.tool)}`}>{TOOL_LABEL[c.tool]}</span>
-                      <span className="mini-change-text"><strong>{c.artifact}</strong> — {c.summary}</span>
+                      <span className="mini-change-text"><strong>{c.artifact}</strong> â€” {c.summary}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* ── Statistiche settimanali ── */}
+              {/* â”€â”€ Statistiche settimanali â”€â”€ */}
               <div className="stats-section mt-24">
                 <div className="stats-section-header">
                   <h3>{mi('trending_up')} Statistiche settimanali</h3>
                   <div className="view-actions">
-                    <button className="btn-secondary btn-sm" onClick={() => setStatsWeekOff(o => o - 1)}>← Prec.</button>
+                    <button className="btn-secondary btn-sm" onClick={() => setStatsWeekOff(o => o - 1)}>â† Prec.</button>
                     <button className="btn-secondary btn-sm" onClick={() => setStatsWeekOff(0)}>Questa</button>
-                    <button className="btn-secondary btn-sm" onClick={() => setStatsWeekOff(o => o + 1)}>Succ. →</button>
+                    <button className="btn-secondary btn-sm" onClick={() => setStatsWeekOff(o => o + 1)}>Succ. â†’</button>
                     <button className="btn-primary btn-sm" onClick={doExport}>{mi('download')} CSV</button>
                   </div>
                 </div>
@@ -1534,7 +1534,7 @@ function App() {
 
                     <div className="grid-2">
                       <div className="card">
-                        <h3>Stato attività</h3>
+                        <h3>Stato attivitÃ </h3>
                         {weekStats.taskStats.length === 0 && <p className="empty">Nessun dato</p>}
                         {weekStats.taskStats.map(s => (
                           <div key={s.status} className="stat-row">
@@ -1561,7 +1561,7 @@ function App() {
             </div>
           )}
 
-          {/* ═══════ GOALS ═══════ */}
+          {/* â•â•â•â•â•â•â• GOALS â•â•â•â•â•â•â• */}
           {view === 'goals' && (
             <div className="view">
               <div className="view-header">
@@ -1609,9 +1609,9 @@ function App() {
             </div>
           )}
 
-          {/* ═══════ TASKS (Kanban) ═══════ */}
+          {/* â•â•â•â•â•â•â• TASKS (Kanban) â•â•â•â•â•â•â• */}
 
-          {/* ═══════ PROJECTS ═══════ */}
+          {/* â•â•â•â•â•â•â• PROJECTS â•â•â•â•â•â•â• */}
           {view === 'projects' && (
             <div className="view">
               <div className="view-header">
@@ -1706,12 +1706,12 @@ function App() {
                           <>
                             <div className="kpi-row kpi-3 mb-20 mt-20">
                               <div className="kpi-card small"><span className="kpi-value">{fmtMin(projStats.totalMinutes)}</span><span className="kpi-label">Tempo</span></div>
-                              <div className="kpi-card small"><span className="kpi-value">{projStats.taskStats.reduce((a, s) => a + s.count, 0)}</span><span className="kpi-label">Attività</span></div>
+                              <div className="kpi-card small"><span className="kpi-value">{projStats.taskStats.reduce((a, s) => a + s.count, 0)}</span><span className="kpi-label">AttivitÃ </span></div>
                               <div className="kpi-card small"><span className="kpi-value">{projStats.changeCount}</span><span className="kpi-label">Modifiche</span></div>
                             </div>
                             {projStats.taskStats.length > 0 && (
                               <div>
-                                <h4>Stato attività</h4>
+                                <h4>Stato attivitÃ </h4>
                                 {projStats.taskStats.map(s => (
                                   <div key={s.status} className="stat-row">
                                     <span className={`badge badge-${s.status.toLowerCase()}`}>{STATUS_LABEL[s.status as TaskStatus] || s.status}</span>
@@ -1724,8 +1724,8 @@ function App() {
                         )}
 
                         {/* Project tasks */}
-                        <h4 className="mt-20">Attività recenti</h4>
-                        {tasks.filter(t => t.projectId === selectedProjId).length === 0 && <p className="empty">Nessuna attività per oggi in questo progetto</p>}
+                        <h4 className="mt-20">AttivitÃ  recenti</h4>
+                        {tasks.filter(t => t.projectId === selectedProjId).length === 0 && <p className="empty">Nessuna attivitÃ  per oggi in questo progetto</p>}
                         {tasks.filter(t => t.projectId === selectedProjId).map(t => (
                           <div key={t.id} className="mini-task">
                             <div className="mini-task-left">
@@ -1780,15 +1780,15 @@ function App() {
             </div>
           )}
 
-          {/* ═══════ TASKS (Kanban) ═══════ */}
+          {/* â•â•â•â•â•â•â• TASKS (Kanban) â•â•â•â•â•â•â• */}
           {view === 'tasks' && (
             <div className="view">
               <div className="view-header">
-                <div><h2 className="view-title">Attività</h2><p className="view-sub">Pianifica e gestisci le attività di oggi</p></div>
+                <div><h2 className="view-title">AttivitÃ </h2><p className="view-sub">Pianifica e gestisci le attivitÃ  di oggi</p></div>
               </div>
 
               <form className="card mb-20" onSubmit={onCreateTask}>
-                <h3>Nuova attività</h3>
+                <h3>Nuova attivitÃ </h3>
                 <div className="form-row mb-12">
                   <input className="fg-2" value={taskTitle} onChange={e => setTaskTitle(e.target.value)} placeholder="Cosa devi fare?" required />
                   <input type="number" className="fg-num" value={taskMin} min={5} onChange={e => setTaskMin(Number(e.target.value))} title="Minuti pianificati" />
@@ -1796,7 +1796,7 @@ function App() {
                     {PRIORITIES.map(p => <option key={p} value={p}>{PRI_LABEL[p]}</option>)}
                   </select>
                   <select value={taskProjId} onChange={e => setTaskProjId(e.target.value === '' ? '' : Number(e.target.value))}>
-                    <option value="">— Nessun progetto —</option>
+                    <option value="">â€” Nessun progetto â€”</option>
                     {projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                   <button type="submit" className="btn-primary">+ Aggiungi</button>
@@ -1813,7 +1813,7 @@ function App() {
                         <span className={`badge badge-${status.toLowerCase()}`}>{STATUS_LABEL[status]}</span>
                         <span className="kanban-count">{items.length}</span>
                       </div>
-                      {items.length === 0 && <p className="empty">Nessuna attività</p>}
+                      {items.length === 0 && <p className="empty">Nessuna attivitÃ </p>}
                       {items.map(t => (
                         <div key={t.id} className="task-card">
                           <div className="task-card-top">
@@ -1872,13 +1872,13 @@ function App() {
                     {PRIORITIES.map(p => <option key={p} value={p}>{PRI_LABEL[p]}</option>)}
                   </select>
                   <select value={tplProjId} onChange={e => setTplProjId(e.target.value === '' ? '' : Number(e.target.value))}>
-                    <option value="">— Progetto —</option>
+                    <option value="">â€” Progetto â€”</option>
                     {projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                   <button type="submit" className="btn-primary btn-sm">+ Template</button>
                 </form>
                 <div className="templates-grid">
-                  {templates.length === 0 && <p className="empty">Nessun template. Creane uno per velocizzare la creazione attività.</p>}
+                  {templates.length === 0 && <p className="empty">Nessun template. Creane uno per velocizzare la creazione attivitÃ .</p>}
                   {templates.map(tpl => (
                     <div key={tpl.id} className="template-card">
                       <div className="template-card-top">
@@ -1901,7 +1901,7 @@ function App() {
             </div>
           )}
 
-          {/* ═══════ TIMER + POMODORO ═══════ */}
+          {/* â•â•â•â•â•â•â• TIMER + POMODORO â•â•â•â•â•â•â• */}
           {view === 'timer' && (
             <div className="view">
               <div className="view-header">
@@ -1911,12 +1911,12 @@ function App() {
               {/* Info banner */}
               <div className="card mb-20" style={{ background: 'var(--bg-card)', border: '1px solid var(--clr-border)' }}>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                  <span className="material-symbols-rounded" style={{ fontSize: 28, color: 'var(--clr-accent)', flexShrink: 0, marginTop: 2 }}>info</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: 28, color: 'var(--clr-accent)', flexShrink: 0, marginTop: 2 }}>info</span>
                   <div style={{ fontSize: '0.92rem', lineHeight: 1.6, color: 'var(--clr-muted)' }}>
                     <strong style={{ color: 'var(--clr-text)' }}>Come funziona il Timer?</strong><br />
                     Seleziona un task dalla lista e premi <em>Avvia</em> per iniziare a tracciare il tempo di lavoro. Al termine, premi <em>Ferma sessione</em> e opzionalmente aggiungi una nota. Le sessioni vengono registrate e contribuiscono alle statistiche e al Report giornaliero.<br /><br />
-                    <strong style={{ color: 'var(--clr-text)' }}>Cos'è il Pomodoro?</strong><br />
-                    La <strong>Tecnica del Pomodoro</strong> alterna cicli di <strong>25 minuti di lavoro concentrato</strong> a <strong>5 minuti di pausa</strong>. Riduce l'affaticamento mentale, elimina il multitasking e aumenta la produttività. Dopo 4 cicli è consigliata una pausa più lunga (15-30 min). Il badge nella sidebar mostra il tempo rimanente.
+                    <strong style={{ color: 'var(--clr-text)' }}>Cos'Ã¨ il Pomodoro?</strong><br />
+                    La <strong>Tecnica del Pomodoro</strong> alterna cicli di <strong>25 minuti di lavoro concentrato</strong> a <strong>5 minuti di pausa</strong>. Riduce l'affaticamento mentale, elimina il multitasking e aumenta la produttivitÃ . Dopo 4 cicli Ã¨ consigliata una pausa piÃ¹ lunga (15-30 min). Il badge nella sidebar mostra il tempo rimanente.
                   </div>
                 </div>
               </div>
@@ -1952,8 +1952,8 @@ function App() {
                 </div>
               ) : (
                 <div className="card mb-20">
-                  <h3>Seleziona un'attività per iniziare</h3>
-                  {tasks.filter(t => t.status !== 'Done').length === 0 && <p className="empty">Nessuna attività disponibile.</p>}
+                  <h3>Seleziona un'attivitÃ  per iniziare</h3>
+                  {tasks.filter(t => t.status !== 'Done').length === 0 && <p className="empty">Nessuna attivitÃ  disponibile.</p>}
                   {tasks.filter(t => t.status !== 'Done').map(t => (
                     <div key={t.id} className="timer-pick">
                       <div>
@@ -1974,8 +1974,8 @@ function App() {
                     <div className="log-head"><strong>{s.taskTitle}</strong><span className="log-dur">{s.durationMinutes ? fmtMin(s.durationMinutes) : 'In corso...'}</span></div>
                     <div className="log-body">
                       {new Date(s.startedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
-                      {s.endedAt && ` – ${new Date(s.endedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}`}
-                      {s.note && <span className="log-note"> — {s.note}</span>}
+                      {s.endedAt && ` â€“ ${new Date(s.endedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}`}
+                      {s.note && <span className="log-note"> â€” {s.note}</span>}
                     </div>
                   </div>
                 ))}
@@ -1983,7 +1983,7 @@ function App() {
             </div>
           )}
 
-          {/* ═══════ CHANGES ═══════ */}
+          {/* â•â•â•â•â•â•â• CHANGES â•â•â•â•â•â•â• */}
           {view === 'changes' && (
             <div className="view">
               <div className="view-header">
@@ -1997,13 +1997,13 @@ function App() {
                       <div className="form-group fg-1"><label>Strumento</label><select value={chgTool} onChange={e => setChgTool(e.target.value as Tool)}>{TOOLS.map(t => <option key={t} value={t}>{TOOL_LABEL[t]}</option>)}</select></div>
                       <div className="form-group fg-1"><label>Tipo</label><select value={chgType} onChange={e => setChgType(e.target.value as ChangeType)}>{CHANGE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
                     </div>
-                    <div className="form-group"><label>Attività collegata (opzionale)</label><select value={chgTaskId} onChange={e => setChgTaskId(e.target.value === '' ? '' : Number(e.target.value))}><option value="">— Nessuna —</option>{tasks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}</select></div>
-                    <div className="form-group"><label>Progetto (opzionale)</label><select value={chgProjId} onChange={e => setChgProjId(e.target.value === '' ? '' : Number(e.target.value))}><option value="">— Nessun progetto —</option>{projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                    <div className="form-group"><label>AttivitÃ  collegata (opzionale)</label><select value={chgTaskId} onChange={e => setChgTaskId(e.target.value === '' ? '' : Number(e.target.value))}><option value="">â€” Nessuna â€”</option>{tasks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}</select></div>
+                    <div className="form-group"><label>Progetto (opzionale)</label><select value={chgProjId} onChange={e => setChgProjId(e.target.value === '' ? '' : Number(e.target.value))}><option value="">â€” Nessun progetto â€”</option>{projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
                     <div className="form-group"><label>Oggetto</label><input value={chgArtifact} onChange={e => setChgArtifact(e.target.value)} placeholder="Es: App Gestione Ordini" required /></div>
                     <div className="form-group"><label>Descrizione modifica</label><textarea value={chgSummary} onChange={e => setChgSummary(e.target.value)} placeholder="Cosa hai fatto?" required /></div>
                     <div className="form-row mb-12">
                       <div className="form-group fg-1"><label>Prima (opzionale)</label><textarea className="small" value={chgBefore} onChange={e => setChgBefore(e.target.value)} placeholder="Com'era" /></div>
-                      <div className="form-group fg-1"><label>Dopo (opzionale)</label><textarea className="small" value={chgAfter} onChange={e => setChgAfter(e.target.value)} placeholder="Com'è adesso" /></div>
+                      <div className="form-group fg-1"><label>Dopo (opzionale)</label><textarea className="small" value={chgAfter} onChange={e => setChgAfter(e.target.value)} placeholder="Com'Ã¨ adesso" /></div>
                     </div>
                     <div className="form-group"><label>Esito test</label><input value={chgTest} onChange={e => setChgTest(e.target.value)} placeholder="Non testato" /></div>
                     <button type="submit" className="btn-primary full-w mt-16">Registra modifica</button>
@@ -2046,7 +2046,7 @@ function App() {
             </div>
           )}
 
-          {/* ═══════ NOTES ═══════ */}
+          {/* â•â•â•â•â•â•â• NOTES â•â•â•â•â•â•â• */}
           {view === 'notes' && (
             <div className="view">
               <div className="view-header"><div><h2 className="view-title">Appunti</h2><p className="view-sub">Riunioni, idee, promemoria e note rapide</p></div></div>
@@ -2080,15 +2080,15 @@ function App() {
             </div>
           )}
 
-          {/* ═══════ HISTORY ═══════ */}
+          {/* â•â•â•â•â•â•â• HISTORY â•â•â•â•â•â•â• */}
           {view === 'history' && (
             <div className="view">
               <div className="view-header">
                 <div><h2 className="view-title">Storico</h2><p className="view-sub">Naviga tra i giorni lavorati</p></div>
                 <div className="view-actions">
-                  <button className="btn-secondary btn-sm" onClick={() => { if (histMonth === 1) { setHistMonth(12); setHistYear(y => y - 1); } else setHistMonth(m => m - 1); }}>←</button>
+                  <button className="btn-secondary btn-sm" onClick={() => { if (histMonth === 1) { setHistMonth(12); setHistYear(y => y - 1); } else setHistMonth(m => m - 1); }}>â†</button>
                   <span className="hist-month-label">{['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'][histMonth - 1]} {histYear}</span>
-                  <button className="btn-secondary btn-sm" onClick={() => { if (histMonth === 12) { setHistMonth(1); setHistYear(y => y + 1); } else setHistMonth(m => m + 1); }}>→</button>
+                  <button className="btn-secondary btn-sm" onClick={() => { if (histMonth === 12) { setHistMonth(1); setHistYear(y => y + 1); } else setHistMonth(m => m + 1); }}>â†’</button>
                 </div>
               </div>
 
@@ -2133,10 +2133,10 @@ function App() {
                         <span className="hist-kpi">{mi('edit_note')} {daySummary.notes.length}</span>
                       </div>
                       {daySummary.goals.length > 0 && <div className="hist-section"><h4>Obiettivi</h4>{daySummary.goals.map(g => <div key={g.id} className="hist-line">{g.isDone ? mi('check') : mi('radio_button_unchecked')} {g.text}</div>)}</div>}
-                      {daySummary.tasks.length > 0 && <div className="hist-section"><h4>Attività</h4>{daySummary.tasks.map(t => <div key={t.id} className="hist-line"><span className={`badge badge-${t.status.toLowerCase()}`}>{STATUS_LABEL[t.status]}</span> {t.title}</div>)}</div>}
-                      {daySummary.sessions.length > 0 && <div className="hist-section"><h4>Sessioni</h4>{daySummary.sessions.map(s => <div key={s.id} className="hist-line">{s.taskTitle} — {s.durationMinutes ? fmtMin(s.durationMinutes) : '?'}{s.note ? ` (${s.note})` : ''}</div>)}</div>}
-                      {daySummary.changes.length > 0 && <div className="hist-section"><h4>Modifiche</h4>{daySummary.changes.map(c => <div key={c.id} className="hist-line"><span className={`badge badge-${toolCls(c.tool)}`}>{TOOL_LABEL[c.tool]}</span> {c.artifact} — {c.summary}</div>)}</div>}
-                      {daySummary.notes.length > 0 && <div className="hist-section"><h4>Appunti</h4>{daySummary.notes.map(n => <div key={n.id} className="hist-line">[{n.category}] {n.title}{n.content ? ` — ${n.content}` : ''}</div>)}</div>}
+                      {daySummary.tasks.length > 0 && <div className="hist-section"><h4>AttivitÃ </h4>{daySummary.tasks.map(t => <div key={t.id} className="hist-line"><span className={`badge badge-${t.status.toLowerCase()}`}>{STATUS_LABEL[t.status]}</span> {t.title}</div>)}</div>}
+                      {daySummary.sessions.length > 0 && <div className="hist-section"><h4>Sessioni</h4>{daySummary.sessions.map(s => <div key={s.id} className="hist-line">{s.taskTitle} â€” {s.durationMinutes ? fmtMin(s.durationMinutes) : '?'}{s.note ? ` (${s.note})` : ''}</div>)}</div>}
+                      {daySummary.changes.length > 0 && <div className="hist-section"><h4>Modifiche</h4>{daySummary.changes.map(c => <div key={c.id} className="hist-line"><span className={`badge badge-${toolCls(c.tool)}`}>{TOOL_LABEL[c.tool]}</span> {c.artifact} â€” {c.summary}</div>)}</div>}
+                      {daySummary.notes.length > 0 && <div className="hist-section"><h4>Appunti</h4>{daySummary.notes.map(n => <div key={n.id} className="hist-line">[{n.category}] {n.title}{n.content ? ` â€” ${n.content}` : ''}</div>)}</div>}
                     </>
                   )}
                 </div>
@@ -2144,10 +2144,10 @@ function App() {
             </div>
           )}
 
-          {/* ═══════ SEARCH ═══════ */}
+          {/* â•â•â•â•â•â•â• SEARCH â•â•â•â•â•â•â• */}
           {view === 'search' && (
             <div className="view">
-              <div className="view-header"><div><h2 className="view-title">Ricerca</h2><p className="view-sub">Cerca in attività, modifiche e appunti</p></div></div>
+              <div className="view-header"><div><h2 className="view-title">Ricerca</h2><p className="view-sub">Cerca in attivitÃ , modifiche e appunti</p></div></div>
 
               <form className="card mb-20" onSubmit={doSearch}>
                 <div className="form-row">
@@ -2164,7 +2164,7 @@ function App() {
 
                   {searchResult.tasks.length > 0 && (
                     <div className="card mb-20">
-                      <h3>Attività ({searchResult.tasks.length})</h3>
+                      <h3>AttivitÃ  ({searchResult.tasks.length})</h3>
                       {searchResult.tasks.map(t => (
                         <div key={t.id} className="search-item">
                           <div className="search-item-head">
@@ -2184,7 +2184,7 @@ function App() {
                         <div key={c.id} className="search-item">
                           <div className="search-item-head">
                             <span className={`badge badge-${toolCls(c.tool)}`}>{TOOL_LABEL[c.tool]}</span>
-                            <strong>{c.artifact}</strong> — {c.summary}
+                            <strong>{c.artifact}</strong> â€” {c.summary}
                           </div>
                           <span className="search-item-date">{c.workDate}</span>
                         </div>
@@ -2199,7 +2199,7 @@ function App() {
                         <div key={n.id} className="search-item">
                           <div className="search-item-head">
                             <span className="badge badge-cat">{n.category}</span>
-                            <strong>{n.title}</strong>{n.content && ` — ${n.content.slice(0, 80)}`}
+                            <strong>{n.title}</strong>{n.content && ` â€” ${n.content.slice(0, 80)}`}
                           </div>
                           <span className="search-item-date">{n.workDate}</span>
                         </div>
@@ -2211,15 +2211,15 @@ function App() {
             </div>
           )}
 
-          {/* ═══════ BACKLOG ═══════ */}
+          {/* â•â•â•â•â•â•â• BACKLOG â•â•â•â•â•â•â• */}
           {view === 'backlog' && (
             <div className="view">
               <div className="view-header">
-                <div><h2 className="view-title">Backlog</h2><p className="view-sub">Attività non completate da giorni precedenti</p></div>
+                <div><h2 className="view-title">Backlog</h2><p className="view-sub">AttivitÃ  non completate da giorni precedenti</p></div>
                 <div className="view-actions"><span className="badge badge-doing">{backlog.length} arretrate</span></div>
               </div>
 
-              {backlog.length === 0 && <div className="card"><div className="empty-box"><span className="empty-icon">{mi('check_circle')}</span><p>Nessuna attività arretrata. Tutto in ordine!</p></div></div>}
+              {backlog.length === 0 && <div className="card"><div className="empty-box"><span className="empty-icon">{mi('check_circle')}</span><p>Nessuna attivitÃ  arretrata. Tutto in ordine!</p></div></div>}
 
               <div className="backlog-list">
                 {backlog.map(t => {
@@ -2250,7 +2250,7 @@ function App() {
             </div>
           )}
 
-          {/* ═══════ SNIPPETS ═══════ */}
+          {/* â•â•â•â•â•â•â• SNIPPETS â•â•â•â•â•â•â• */}
           {view === 'snippets' && (
             <div className="view">
               <div className="view-header">
@@ -2300,7 +2300,7 @@ function App() {
             </div>
           )}
 
-          {/* ═══════ BOOKMARKS ═══════ */}
+          {/* â•â•â•â•â•â•â• BOOKMARKS â•â•â•â•â•â•â• */}
           {view === 'bookmarks' && (
             <div className="view">
               <div className="view-header">
@@ -2321,7 +2321,7 @@ function App() {
                     {BOOKMARK_CATS.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                   <select value={bmProjId} onChange={e => setBmProjId(e.target.value === '' ? '' : Number(e.target.value))}>
-                    <option value="">— Progetto —</option>
+                    <option value="">â€” Progetto â€”</option>
                     {projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </div>
@@ -2352,7 +2352,7 @@ function App() {
                                     {BOOKMARK_CATS.map(c => <option key={c} value={c}>{c}</option>)}
                                   </select>
                                   <select value={editingBookmark.projectId ?? ''} onChange={e => setEditingBookmark(prev => prev ? { ...prev, projectId: e.target.value === '' ? null : Number(e.target.value) } : prev)}>
-                                    <option value="">— Progetto —</option>
+                                    <option value="">â€” Progetto â€”</option>
                                     {projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                   </select>
                                 </div>
@@ -2382,7 +2382,7 @@ function App() {
             </div>
           )}
 
-          {/* ═══════ CONTACTS ═══════ */}
+          {/* â•â•â•â•â•â•â• CONTACTS â•â•â•â•â•â•â• */}
           {view === 'contacts' && (
             <div className="view">
               <div className="view-header"><div><h2 className="view-title">Contatti</h2><p className="view-sub">Rubrica stakeholder e collaboratori</p></div></div>
@@ -2399,7 +2399,7 @@ function App() {
                 </div>
                 <div className="form-row mb-12">
                   <div className="form-group fg-2"><label>Note</label><input value={ctNotes} onChange={e => setCtNotes(e.target.value)} placeholder="Informazioni aggiuntive" /></div>
-                  <div className="form-group fg-1"><label>Progetto</label><select value={ctProjId} onChange={e => setCtProjId(e.target.value === '' ? '' : Number(e.target.value))}><option value="">— Nessuno —</option>{projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                  <div className="form-group fg-1"><label>Progetto</label><select value={ctProjId} onChange={e => setCtProjId(e.target.value === '' ? '' : Number(e.target.value))}><option value="">â€” Nessuno â€”</option>{projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
                 </div>
                 <button type="submit" className="btn-primary mt-16">{mi('person_add')} Aggiungi contatto</button>
               </form>
@@ -2420,7 +2420,7 @@ function App() {
                         </div>
                         <div className="form-row mb-12">
                           <div className="form-group fg-2"><label>Note</label><input value={editingContact.notes} onChange={e => setEditingContact(prev => prev ? { ...prev, notes: e.target.value } : prev)} /></div>
-                          <div className="form-group fg-1"><label>Progetto</label><select value={editingContact.projectId ?? ''} onChange={e => setEditingContact(prev => prev ? { ...prev, projectId: e.target.value === '' ? null : Number(e.target.value) } : prev)}><option value="">— Nessuno —</option>{projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                          <div className="form-group fg-1"><label>Progetto</label><select value={editingContact.projectId ?? ''} onChange={e => setEditingContact(prev => prev ? { ...prev, projectId: e.target.value === '' ? null : Number(e.target.value) } : prev)}><option value="">â€” Nessuno â€”</option>{projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
                         </div>
                         <AttachmentSection entityType="contact" entityId={editingContact.id} />
                         <div className="form-row"><button className="btn-primary btn-sm" onClick={saveEditContact}>{mi('check')} Salva</button><button className="btn-secondary btn-sm" onClick={cancelEditContact}>Annulla</button></div>
@@ -2449,7 +2449,7 @@ function App() {
             </div>
           )}
 
-          {/* ═══════ ENVIRONMENTS ═══════ */}
+          {/* â•â•â•â•â•â•â• ENVIRONMENTS â•â•â•â•â•â•â• */}
           {view === 'environments' && (
             <div className="view">
               <div className="view-header"><div><h2 className="view-title">Ambienti</h2><p className="view-sub">Mappa dei tuoi ambienti Power Platform</p></div></div>
@@ -2462,7 +2462,7 @@ function App() {
                 </div>
                 <div className="form-row mb-12">
                   <div className="form-group fg-2"><label>URL</label><input value={envUrl} onChange={e => setEnvUrl(e.target.value)} placeholder="https://org.crm4.dynamics.com" /></div>
-                  <div className="form-group fg-1"><label>Progetto</label><select value={envProjId} onChange={e => setEnvProjId(e.target.value === '' ? '' : Number(e.target.value))}><option value="">— Nessuno —</option>{projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                  <div className="form-group fg-1"><label>Progetto</label><select value={envProjId} onChange={e => setEnvProjId(e.target.value === '' ? '' : Number(e.target.value))}><option value="">â€” Nessuno â€”</option>{projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
                 </div>
                 <div className="form-group"><label>Descrizione</label><input value={envDesc} onChange={e => setEnvDesc(e.target.value)} placeholder="Note sull'ambiente" /></div>
                 <button type="submit" className="btn-primary mt-16">{mi('add_circle')} Aggiungi ambiente</button>
@@ -2470,7 +2470,7 @@ function App() {
               <div className="env-grid">
                 {environments.length === 0 && <div className="empty-box full-w"><span className="empty-icon">{mi('cloud')}</span><p>Nessun ambiente configurato</p></div>}
                 {environments.map(env => (
-                  <div key={env.id} className={`card env-card env-${env.status.toLowerCase().replace('à', 'a')}`}>
+                  <div key={env.id} className={`card env-card env-${env.status.toLowerCase().replace('Ã ', 'a')}`}>
                     {editingEnv && editingEnv.id === env.id ? (
                       <div>
                         <div className="form-row mb-12">
@@ -2480,7 +2480,7 @@ function App() {
                         </div>
                         <div className="form-row mb-12">
                           <div className="form-group fg-2"><label>URL</label><input value={editingEnv.url} onChange={e => setEditingEnv(prev => prev ? { ...prev, url: e.target.value } : prev)} /></div>
-                          <div className="form-group fg-1"><label>Progetto</label><select value={editingEnv.projectId ?? ''} onChange={e => setEditingEnv(prev => prev ? { ...prev, projectId: e.target.value === '' ? null : Number(e.target.value) } : prev)}><option value="">— Nessuno —</option>{projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                          <div className="form-group fg-1"><label>Progetto</label><select value={editingEnv.projectId ?? ''} onChange={e => setEditingEnv(prev => prev ? { ...prev, projectId: e.target.value === '' ? null : Number(e.target.value) } : prev)}><option value="">â€” Nessuno â€”</option>{projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
                         </div>
                         <div className="form-group"><label>Descrizione</label><input value={editingEnv.description} onChange={e => setEditingEnv(prev => prev ? { ...prev, description: e.target.value } : prev)} /></div>
                         <AttachmentSection entityType="environment" entityId={editingEnv.id} />
@@ -2511,14 +2511,14 @@ function App() {
             </div>
           )}
 
-          {/* ═══════ RETROSPECTIVES ═══════ */}
+          {/* â•â•â•â•â•â•â• RETROSPECTIVES â•â•â•â•â•â•â• */}
           {view === 'retros' && (
             <div className="view">
               <div className="view-header"><div><h2 className="view-title">Retrospettive</h2><p className="view-sub">Rifletti sulla settimana per migliorare</p></div></div>
               <form className="card mb-20" onSubmit={onCreateRetro}>
                 <h3>Nuova retrospettiva &mdash; Settimana del {currentWeekStart()}</h3>
-                <div className="form-group"><label>{mi('thumb_up')} Cosa è andato bene</label><textarea value={retroWell} onChange={e => setRetroWell(e.target.value)} placeholder="Successi, risultati positivi, cose da mantenere..." rows={3} /></div>
-                <div className="form-group"><label>{mi('construction')} Cosa migliorare</label><textarea value={retroImprove} onChange={e => setRetroImprove(e.target.value)} placeholder="Difficoltà, inefficienze, errori da evitare..." rows={3} /></div>
+                <div className="form-group"><label>{mi('thumb_up')} Cosa Ã¨ andato bene</label><textarea value={retroWell} onChange={e => setRetroWell(e.target.value)} placeholder="Successi, risultati positivi, cose da mantenere..." rows={3} /></div>
+                <div className="form-group"><label>{mi('construction')} Cosa migliorare</label><textarea value={retroImprove} onChange={e => setRetroImprove(e.target.value)} placeholder="DifficoltÃ , inefficienze, errori da evitare..." rows={3} /></div>
                 <div className="form-group"><label>{mi('rocket_launch')} Azioni per la prossima settimana</label><textarea value={retroActions} onChange={e => setRetroActions(e.target.value)} placeholder="Obiettivi concreti, cambiamenti da implementare..." rows={3} /></div>
                 <button type="submit" className="btn-primary mt-16">{mi('save')} Salva retrospettiva</button>
               </form>
@@ -2540,7 +2540,7 @@ function App() {
             </div>
           )}
 
-          {/* ═══════ BUGS ═══════ */}
+          {/* â•â•â•â•â•â•â• BUGS â•â•â•â•â•â•â• */}
           {view === 'bugs' && (
             <div className="view">
               <div className="view-header">
@@ -2553,8 +2553,8 @@ function App() {
                 <h3>Nuovo bug</h3>
                 <div className="form-row mb-12">
                   <div className="form-group fg-2"><label>Titolo</label><input value={bugTitle} onChange={e => setBugTitle(e.target.value)} placeholder="Descrizione breve del bug" required /></div>
-                  <div className="form-group fg-1"><label>Severità</label><select value={bugSeverity} onChange={e => setBugSeverity(e.target.value as BugSeverity)}>{BUG_SEVERITIES.map(s => <option key={s} value={s}>{SEV_LABEL[s]}</option>)}</select></div>
-                  <div className="form-group fg-1"><label>Progetto</label><select value={bugProjId} onChange={e => setBugProjId(e.target.value === '' ? '' : Number(e.target.value))}><option value="">— Nessuno —</option>{projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                  <div className="form-group fg-1"><label>SeveritÃ </label><select value={bugSeverity} onChange={e => setBugSeverity(e.target.value as BugSeverity)}>{BUG_SEVERITIES.map(s => <option key={s} value={s}>{SEV_LABEL[s]}</option>)}</select></div>
+                  <div className="form-group fg-1"><label>Progetto</label><select value={bugProjId} onChange={e => setBugProjId(e.target.value === '' ? '' : Number(e.target.value))}><option value="">â€” Nessuno â€”</option>{projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
                 </div>
                 <div className="form-group"><label>Descrizione</label><textarea value={bugDesc} onChange={e => setBugDesc(e.target.value)} placeholder="Descrizione dettagliata del problema" /></div>
                 <div className="form-group"><label>Passi per riprodurre</label><textarea value={bugSteps} onChange={e => setBugSteps(e.target.value)} placeholder="1. Vai a...\n2. Clicca su...\n3. Osserva che..." /></div>
@@ -2584,7 +2584,7 @@ function App() {
             </div>
           )}
 
-          {/* ═══════ LEARNING ═══════ */}
+          {/* â•â•â•â•â•â•â• LEARNING â•â•â•â•â•â•â• */}
           {view === 'learning' && (
             <div className="view">
               <div className="view-header">
@@ -2634,7 +2634,7 @@ function App() {
             </div>
           )}
 
-          {/* ═══════ CHECKLISTS ═══════ */}
+          {/* â•â•â•â•â•â•â• CHECKLISTS â•â•â•â•â•â•â• */}
           {view === 'checklists' && (
             <div className="view">
               <div className="view-header"><div><h2 className="view-title">Checklist</h2><p className="view-sub">Liste riutilizzabili per procedure e deploy</p></div></div>
@@ -2642,7 +2642,7 @@ function App() {
                 <h3>Nuova checklist</h3>
                 <div className="form-row mb-12">
                   <div className="form-group fg-2"><label>Titolo</label><input value={clTitle} onChange={e => setClTitle(e.target.value)} placeholder="Es: Procedura Deploy Produzione" required /></div>
-                  <div className="form-group fg-1"><label>Progetto</label><select value={clProjId} onChange={e => setClProjId(e.target.value === '' ? '' : Number(e.target.value))}><option value="">— Nessuno —</option>{projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                  <div className="form-group fg-1"><label>Progetto</label><select value={clProjId} onChange={e => setClProjId(e.target.value === '' ? '' : Number(e.target.value))}><option value="">â€” Nessuno â€”</option>{projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
                 </div>
                 <div className="form-group"><label>Descrizione (opzionale)</label><input value={clDesc} onChange={e => setClDesc(e.target.value)} placeholder="Quando usare questa checklist" /></div>
                 <button type="submit" className="btn-primary mt-16">{mi('add_circle')} Crea checklist</button>
@@ -2657,7 +2657,7 @@ function App() {
                         <div onClick={e => e.stopPropagation()}>
                           <div className="form-group mb-12"><label>Titolo</label><input value={editingCl.title} onChange={e => setEditingCl(prev => prev ? { ...prev, title: e.target.value } : prev)} /></div>
                           <div className="form-group mb-12"><label>Descrizione</label><input value={editingCl.description} onChange={e => setEditingCl(prev => prev ? { ...prev, description: e.target.value } : prev)} /></div>
-                          <div className="form-group mb-12"><label>Progetto</label><select value={editingCl.projectId ?? ''} onChange={e => setEditingCl(prev => prev ? { ...prev, projectId: e.target.value === '' ? null : Number(e.target.value) } : prev)}><option value="">— Nessuno —</option>{projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                          <div className="form-group mb-12"><label>Progetto</label><select value={editingCl.projectId ?? ''} onChange={e => setEditingCl(prev => prev ? { ...prev, projectId: e.target.value === '' ? null : Number(e.target.value) } : prev)}><option value="">â€” Nessuno â€”</option>{projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
                           <div className="form-row"><button className="btn-primary btn-sm" onClick={saveEditCl}>{mi('check')} Salva</button><button className="btn-secondary btn-sm" onClick={cancelEditCl}>Annulla</button></div>
                         </div>
                       ) : (
@@ -2715,11 +2715,11 @@ function App() {
             </div>
           )}
 
-          {/* ═══════ POWER APPS ANALYZER ═══════ */}
+          {/* â•â•â•â•â•â•â• POWER APPS ANALYZER â•â•â•â•â•â•â• */}
           {view === 'analyzer' && (
             <div className="view">
               <div className="view-header">
-                <div><h2 className="view-title">Power Apps Analyzer</h2><p className="view-sub">Analizza in profondità le tue Canvas App (.msapp)</p></div>
+                <div><h2 className="view-title">Power Apps Analyzer</h2><p className="view-sub">Analizza in profonditÃ  le tue Canvas App (.msapp)</p></div>
                 <div className="view-actions">
                   {msappData && <button className="btn-secondary" onClick={async () => {
                     if (!api || !msappData) return;
@@ -2754,7 +2754,7 @@ function App() {
                   <span className="analyzer-drop-icon">{mi('analytics')}</span>
                   <h3>Trascina qui un file .msapp</h3>
                   <p className="muted">oppure clicca "Importa .msapp" per selezionarlo</p>
-                  <p className="muted mt-16" style={{ fontSize: 13 }}>Per esportare una Canvas App: Power Apps Studio → File → Salva con nome → Questo computer</p>
+                  <p className="muted mt-16" style={{ fontSize: 13 }}>Per esportare una Canvas App: Power Apps Studio â†’ File â†’ Salva con nome â†’ Questo computer</p>
                 </div>
               )}
 
@@ -2789,7 +2789,7 @@ function App() {
                       <div className="az-appbar-info">
                         <strong>{d.fileName || d.appName || 'Power App'}</strong>
                         {d.appName && <span className="muted ml-8">{d.appName}</span>}
-                        {d.modifiedAt && <span className="muted ml-8">• Modificata: {new Date(d.modifiedAt).toLocaleDateString('it-IT')}</span>}
+                        {d.modifiedAt && <span className="muted ml-8">â€¢ Modificata: {new Date(d.modifiedAt).toLocaleDateString('it-IT')}</span>}
                       </div>
                       <button className="btn-secondary btn-sm" onClick={() => { setMsappData(null); setMsappDiffData(null); setMsappSecond(null); setMsappSearch(''); setMsappTab('overview'); }}>{mi('close')} Chiudi</button>
                     </div>
@@ -2814,7 +2814,7 @@ function App() {
                       </div>
                     )}
 
-                    {/* ═══ TAB: Overview (Enhanced) ═══ */}
+                    {/* â•â•â• TAB: Overview (Enhanced) â•â•â• */}
                     {msappTab === 'overview' && (
                       <div className="az-overview">
                         {/* Health score banner */}
@@ -2826,8 +2826,8 @@ function App() {
                             </div>
                             <div className="az-health-banner-right">
                               <h3>App Health Score</h3>
-                              <p className="muted">Performance {d.healthScore.scores.performance} • Delegazione {d.healthScore.scores.delegation} • Manutenibilità {d.healthScore.scores.maintainability} • Sicurezza {d.healthScore.scores.security} • Accessibilità {d.healthScore.scores.accessibility} • Architettura {d.healthScore.scores.architecture}</p>
-                              {(s.issueCount || 0) > 0 && <p className="mt-8">{mi('bug_report')} <strong>{s.issueCount} problemi trovati</strong> — {s.criticalIssues || 0} critici, {s.highIssues || 0} alti, {s.mediumIssues || 0} medi, {s.lowIssues || 0} bassi <span className="muted ml-8">Clicca per dettagli →</span></p>}
+                              <p className="muted">Performance {d.healthScore.scores.performance} â€¢ Delegazione {d.healthScore.scores.delegation} â€¢ ManutenibilitÃ  {d.healthScore.scores.maintainability} â€¢ Sicurezza {d.healthScore.scores.security} â€¢ AccessibilitÃ  {d.healthScore.scores.accessibility} â€¢ Architettura {d.healthScore.scores.architecture}</p>
+                              {(s.issueCount || 0) > 0 && <p className="mt-8">{mi('bug_report')} <strong>{s.issueCount} problemi trovati</strong> â€” {s.criticalIssues || 0} critici, {s.highIssues || 0} alti, {s.mediumIssues || 0} medi, {s.lowIssues || 0} bassi <span className="muted ml-8">Clicca per dettagli â†’</span></p>}
                             </div>
                           </div>
                         )}
@@ -2911,7 +2911,7 @@ function App() {
                         {/* Formula complexity overview */}
                         {d.formulaComplexity && (
                           <div className="card mb-20">
-                            <h4>{mi('speed')} Complessità Formule</h4>
+                            <h4>{mi('speed')} ComplessitÃ  Formule</h4>
                             <div className="az-complexity-bars">
                               <div className="az-cbar"><div className="az-cbar-label">Semplici</div><div className="az-cbar-track"><div className="az-cbar-fill az-cbar-simple" style={{ width: `${Math.min(100, (d.formulaComplexity.distribution.simple / Math.max(1, s.totalFormulas)) * 100)}%` }} /></div><div className="az-cbar-num">{d.formulaComplexity.distribution.simple}</div></div>
                               <div className="az-cbar"><div className="az-cbar-label">Moderate</div><div className="az-cbar-track"><div className="az-cbar-fill az-cbar-moderate" style={{ width: `${Math.min(100, (d.formulaComplexity.distribution.moderate / Math.max(1, s.totalFormulas)) * 100)}%` }} /></div><div className="az-cbar-num">{d.formulaComplexity.distribution.moderate}</div></div>
@@ -2964,7 +2964,7 @@ function App() {
                       </div>
                     )}
 
-                    {/* ═══ TAB: Health Score ═══ */}
+                    {/* â•â•â• TAB: Health Score â•â•â• */}
                     {msappTab === 'health' && d.healthScore && (
                       <div>
                         {/* Big score display */}
@@ -2979,7 +2979,7 @@ function App() {
                         {/* Radar-style category breakdown */}
                         <div className="grid-3 mb-20">
                           {Object.entries(d.healthScore.scores).map(([key, val]) => {
-                            const labels: Record<string, string> = { performance: 'Performance', delegation: 'Delegazione', maintainability: 'Manutenibilità', security: 'Sicurezza', accessibility: 'Accessibilità', architecture: 'Architettura' };
+                            const labels: Record<string, string> = { performance: 'Performance', delegation: 'Delegazione', maintainability: 'ManutenibilitÃ ', security: 'Sicurezza', accessibility: 'AccessibilitÃ ', architecture: 'Architettura' };
                             const icons: Record<string, string> = { performance: 'speed', delegation: 'cloud_sync', maintainability: 'build', security: 'shield', accessibility: 'accessibility_new', architecture: 'account_tree' };
                             const v = val as number;
                             const color = v >= 80 ? '#22c55e' : v >= 60 ? '#eab308' : v >= 40 ? '#f97316' : '#ef4444';
@@ -3011,25 +3011,25 @@ function App() {
                             {d.healthScore.scores.delegation < 60 && (
                               <div className="az-rec az-rec-high">
                                 <span className="az-rec-icon">{mi('cloud_sync')}</span>
-                                <div><strong>Problemi di Delegazione</strong><p className="muted">{d.issues?.filter((i: MsappIssue) => i.category === 'delegation').length || 0} formule non delegabili. Con più di 500/2000 record i dati saranno incompleti.</p></div>
+                                <div><strong>Problemi di Delegazione</strong><p className="muted">{d.issues?.filter((i: MsappIssue) => i.category === 'delegation').length || 0} formule non delegabili. Con piÃ¹ di 500/2000 record i dati saranno incompleti.</p></div>
                               </div>
                             )}
                             {d.healthScore.scores.accessibility < 50 && (
                               <div className="az-rec az-rec-medium">
                                 <span className="az-rec-icon">{mi('accessibility_new')}</span>
-                                <div><strong>Accessibilità Insufficiente</strong><p className="muted">{d.issues?.filter((i: MsappIssue) => i.category === 'accessibility').length || 0} controlli senza AccessibleLabel o Tooltip. Migliora l'esperienza per screen reader.</p></div>
+                                <div><strong>AccessibilitÃ  Insufficiente</strong><p className="muted">{d.issues?.filter((i: MsappIssue) => i.category === 'accessibility').length || 0} controlli senza AccessibleLabel o Tooltip. Migliora l'esperienza per screen reader.</p></div>
                               </div>
                             )}
                             {d.orphanScreens && d.orphanScreens.length > 0 && (
                               <div className="az-rec az-rec-medium">
                                 <span className="az-rec-icon">{mi('link_off')}</span>
-                                <div><strong>Schermate Orfane</strong><p className="muted">{d.orphanScreens.join(', ')} — nessuna navigazione punta a queste schermate.</p></div>
+                                <div><strong>Schermate Orfane</strong><p className="muted">{d.orphanScreens.join(', ')} â€” nessuna navigazione punta a queste schermate.</p></div>
                               </div>
                             )}
                             {d.unusedDataSources && d.unusedDataSources.length > 0 && (
                               <div className="az-rec az-rec-low">
                                 <span className="az-rec-icon">{mi('delete_sweep')}</span>
-                                <div><strong>Data Source Inutilizzate ({d.unusedDataSources.length})</strong><p className="muted">{d.unusedDataSources.join(', ')} — rimuovile per migliorare le performance di caricamento.</p></div>
+                                <div><strong>Data Source Inutilizzate ({d.unusedDataSources.length})</strong><p className="muted">{d.unusedDataSources.join(', ')} â€” rimuovile per migliorare le performance di caricamento.</p></div>
                               </div>
                             )}
                             {d.unusedVariables && d.unusedVariables.length > 0 && (
@@ -3041,7 +3041,7 @@ function App() {
                             {d.healthScore.overall >= 80 && (
                               <div className="az-rec az-rec-ok">
                                 <span className="az-rec-icon">{mi('check_circle')}</span>
-                                <div><strong>App in buona salute!</strong><p className="muted">Continua così. Monitora i pochi problemi residui per mantenere la qualità.</p></div>
+                                <div><strong>App in buona salute!</strong><p className="muted">Continua cosÃ¬. Monitora i pochi problemi residui per mantenere la qualitÃ .</p></div>
                               </div>
                             )}
                           </div>
@@ -3050,7 +3050,7 @@ function App() {
                         {/* Top complex formulas */}
                         {d.formulaComplexity && d.formulaComplexity.topComplex.length > 0 && (
                           <div className="card mb-20">
-                            <h4>{mi('whatshot')} Formule Più Complesse (Top 10)</h4>
+                            <h4>{mi('whatshot')} Formule PiÃ¹ Complesse (Top 10)</h4>
                             <div className="az-top-complex">
                               {d.formulaComplexity.topComplex.slice(0, 10).map((f: { screen: string; control: string; property: string; formula: string; score: number; nestingDepth: number; functionCount: number; length: number }, i: number) => (
                                 <div key={i} className="az-complex-row">
@@ -3074,7 +3074,7 @@ function App() {
                       </div>
                     )}
 
-                    {/* ═══ TAB: Issues ═══ */}
+                    {/* â•â•â• TAB: Issues â•â•â• */}
                     {msappTab === 'issues' && (
                       <div>
                         {(() => {
@@ -3085,10 +3085,10 @@ function App() {
                           const catLabels: Record<string, { label: string; icon: string }> = {
                             performance: { label: 'Performance', icon: 'speed' },
                             delegation: { label: 'Delegazione', icon: 'cloud_sync' },
-                            accessibility: { label: 'Accessibilità', icon: 'accessibility_new' },
+                            accessibility: { label: 'AccessibilitÃ ', icon: 'accessibility_new' },
                             naming: { label: 'Naming Convention', icon: 'label' },
                             security: { label: 'Sicurezza / Hardcoded', icon: 'shield' },
-                            quality: { label: 'Qualità Codice', icon: 'code' },
+                            quality: { label: 'QualitÃ  Codice', icon: 'code' },
                             hardcoded: { label: 'Valori Hardcoded', icon: 'pin' },
                           };
                           const sevOrder = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -3133,18 +3133,18 @@ function App() {
                                   </div>
                                 );
                               })}
-                              {filtered.length === 0 && <div className="empty-box"><span className="empty-icon">{mi('check_circle')}</span><p>Nessun problema trovato! L'app è in ottima forma.</p></div>}
+                              {filtered.length === 0 && <div className="empty-box"><span className="empty-icon">{mi('check_circle')}</span><p>Nessun problema trovato! L'app Ã¨ in ottima forma.</p></div>}
                             </>
                           );
                         })()}
                       </div>
                     )}
 
-                    {/* ═══ TAB: Dependencies Matrix ═══ */}
+                    {/* â•â•â• TAB: Dependencies Matrix â•â•â• */}
                     {msappTab === 'dependencies' && (
                       <div>
                         <div className="card mb-16">
-                          <h4>{mi('hub')} Matrice Dipendenze Schermata × Data Source</h4>
+                          <h4>{mi('hub')} Matrice Dipendenze Schermata Ã— Data Source</h4>
                           <p className="muted mb-12">R = letture, W = scritture. Celle colorate indicano operazioni di scrittura.</p>
                           <div className="az-table-scroll">
                             <table className="az-matrix">
@@ -3168,7 +3168,7 @@ function App() {
                                       if (!dep) return <td key={ds.name} className="az-matrix-cell az-matrix-empty" />;
                                       const hasWrite = dep.writeCount > 0;
                                       return (
-                                        <td key={ds.name} className={`az-matrix-cell ${hasWrite ? 'az-matrix-write' : 'az-matrix-read'}`} title={`${dm.screen} → ${ds.name}: R${dep.readCount} W${dep.writeCount} ${dep.operations.join(',')}`}>
+                                        <td key={ds.name} className={`az-matrix-cell ${hasWrite ? 'az-matrix-write' : 'az-matrix-read'}`} title={`${dm.screen} â†’ ${ds.name}: R${dep.readCount} W${dep.writeCount} ${dep.operations.join(',')}`}>
                                           <span className="az-matrix-r">R{dep.readCount}</span>
                                           {hasWrite && <span className="az-matrix-w">W{dep.writeCount}</span>}
                                         </td>
@@ -3216,7 +3216,7 @@ function App() {
                       </div>
                     )}
 
-                    {/* ═══ TAB: Screen Layout (Wireframe) ═══ */}
+                    {/* â•â•â• TAB: Screen Layout (Wireframe) â•â•â• */}
                     {msappTab === 'layout' && (
                       <div>
                         {(d.screenLayouts || []).filter((sl: MsappControlLayout) => sl.name !== 'App').map((sl: MsappControlLayout) => {
@@ -3228,15 +3228,15 @@ function App() {
                           const renderLayoutNode = (node: MsappControlLayout, depth: number, key: string): JSX.Element => {
                             const indent = depth * 24;
                             const isContainer = node.children.length > 0;
-                            const wLabel = node.width ? (node.width.length > 30 ? node.width.substring(0, 30) + '…' : node.width) : '';
-                            const hLabel = node.height ? (node.height.length > 30 ? node.height.substring(0, 30) + '…' : node.height) : '';
+                            const wLabel = node.width ? (node.width.length > 30 ? node.width.substring(0, 30) + 'â€¦' : node.width) : '';
+                            const hLabel = node.height ? (node.height.length > 30 ? node.height.substring(0, 30) + 'â€¦' : node.height) : '';
                             return (
                               <div key={key}>
                                 <div className={`az-layout-node ${isContainer ? 'az-layout-container' : ''} ${node.visible !== 'true' && node.visible !== '' ? 'az-layout-hidden' : ''}`} style={{ paddingLeft: indent + 8 }}>
                                   <span className="material-symbols-outlined az-layout-icon" style={{ fontSize: 16 }}>{typeIcon(node.type)}</span>
                                   <span className="az-layout-name">{node.name}</span>
                                   <span className="az-layout-type">{node.type}</span>
-                                  {(wLabel || hLabel) && <span className="az-layout-dims">{wLabel}{wLabel && hLabel ? ' × ' : ''}{hLabel}</span>}
+                                  {(wLabel || hLabel) && <span className="az-layout-dims">{wLabel}{wLabel && hLabel ? ' Ã— ' : ''}{hLabel}</span>}
                                   {node.visible !== 'true' && node.visible !== '' && <span className="badge badge-hidden">Hidden</span>}
                                   {node.isLocked && <span className="material-symbols-outlined az-layout-lock" style={{ fontSize: 14 }}>lock</span>}
                                 </div>
@@ -3265,7 +3265,7 @@ function App() {
                       </div>
                     )}
 
-                    {/* ═══ TAB: Screens ═══ */}
+                    {/* â•â•â• TAB: Screens â•â•â• */}
                     {msappTab === 'screens' && (
                       <div>
                         {d.screens.filter(sc => !q || sc.name.toLowerCase().includes(q)).map(sc => (
@@ -3320,7 +3320,7 @@ function App() {
                       </div>
                     )}
 
-                    {/* ═══ TAB: Data Ops ═══ */}
+                    {/* â•â•â• TAB: Data Ops â•â•â• */}
                     {msappTab === 'dataops' && (
                       <div>
                         {(() => {
@@ -3339,7 +3339,7 @@ function App() {
                                   <div key={i} className="az-op-detail" onClick={() => setMsappExpandedFormula(msappExpandedFormula === i ? null : i)}>
                                     <div className="az-op-detail-head">
                                       <span className="az-op-target">{op.target}</span>
-                                      <span className="muted">{op.screen} → {op.control}.{op.property}</span>
+                                      <span className="muted">{op.screen} â†’ {op.control}.{op.property}</span>
                                     </div>
                                     {msappExpandedFormula === i && (
                                       <pre className="az-formula-code">{op.fullExpression}</pre>
@@ -3354,7 +3354,7 @@ function App() {
                       </div>
                     )}
 
-                    {/* ═══ TAB: Flow Calls ═══ */}
+                    {/* â•â•â• TAB: Flow Calls â•â•â• */}
                     {msappTab === 'flows' && (
                       <div>
                         {(() => {
@@ -3367,10 +3367,10 @@ function App() {
                           if (grouped.size === 0) return <div className="empty-box"><span className="empty-icon">{mi('bolt')}</span><p>Nessuna chiamata a Flow trovata</p><p className="muted">Cerca .Run() nelle formule della tua app</p></div>;
                           return [...grouped.entries()].map(([flowName, items]) => (
                             <div key={flowName} className="card mb-16">
-                              <h4><span className="badge badge-flow">{mi('bolt')} {flowName}</span> — chiamato {items.length} volt{items.length === 1 ? 'a' : 'e'}</h4>
+                              <h4><span className="badge badge-flow">{mi('bolt')} {flowName}</span> â€” chiamato {items.length} volt{items.length === 1 ? 'a' : 'e'}</h4>
                               {items.map((fc, i) => (
                                 <div key={i} className="az-flow-call">
-                                  <div><strong>{fc.screen}</strong> → {fc.control}<span className="muted">.{fc.property}</span></div>
+                                  <div><strong>{fc.screen}</strong> â†’ {fc.control}<span className="muted">.{fc.property}</span></div>
                                   <pre className="az-formula-code">{fc.fullExpression}</pre>
                                 </div>
                               ))}
@@ -3380,7 +3380,7 @@ function App() {
                       </div>
                     )}
 
-                    {/* ═══ TAB: Data Sources ═══ */}
+                    {/* â•â•â• TAB: Data Sources â•â•â• */}
                     {msappTab === 'datasources' && (
                       <div>
                         {d.dataSources.filter(ds => !q || ds.name.toLowerCase().includes(q) || ds.type.toLowerCase().includes(q)).map((ds, i) => {
@@ -3399,13 +3399,13 @@ function App() {
                                   <span className="muted">Referenziata in {usage.usedIn.length} formul{usage.usedIn.length === 1 ? 'a' : 'e'}:</span>
                                   <div className="az-ds-refs">
                                     {usage.usedIn.slice(0, 10).map((ref, ri) => (
-                                      <span key={ri} className="az-ds-ref">{ref.screen} → {ref.control}.{ref.property}</span>
+                                      <span key={ri} className="az-ds-ref">{ref.screen} â†’ {ref.control}.{ref.property}</span>
                                     ))}
                                     {usage.usedIn.length > 10 && <span className="muted">...e altre {usage.usedIn.length - 10}</span>}
                                   </div>
                                 </div>
                               )}
-                              {(!usage || usage.usedIn.length === 0) && <p className="muted" style={{ fontSize: 13 }}>⚠ DataSource non referenziata nelle formule (possibile inutilizzata)</p>}
+                              {(!usage || usage.usedIn.length === 0) && <p className="muted" style={{ fontSize: 13 }}>âš  DataSource non referenziata nelle formule (possibile inutilizzata)</p>}
                             </div>
                           );
                         })}
@@ -3413,7 +3413,7 @@ function App() {
                       </div>
                     )}
 
-                    {/* ═══ TAB: Variables ═══ */}
+                    {/* â•â•â• TAB: Variables â•â•â• */}
                     {msappTab === 'variables' && (
                       <div>
                         {(() => {
@@ -3427,7 +3427,7 @@ function App() {
                                 {globalVars.map((v, i) => (
                                   <div key={i} className="az-var-row">
                                     <span className="badge badge-var-global">{v.name}</span>
-                                    <span className="muted">Set() in: {v.setIn.map((s, si) => <span key={si} className="az-var-loc">{s.screen} → {s.control}.{s.property}</span>)}</span>
+                                    <span className="muted">Set() in: {v.setIn.map((s, si) => <span key={si} className="az-var-loc">{s.screen} â†’ {s.control}.{s.property}</span>)}</span>
                                   </div>
                                 ))}
                               </div>
@@ -3437,7 +3437,7 @@ function App() {
                                 {ctxVars.map((v, i) => (
                                   <div key={i} className="az-var-row">
                                     <span className="badge badge-var-ctx">{v.name}</span>
-                                    <span className="muted">UpdateContext() in: {v.setIn.map((s, si) => <span key={si} className="az-var-loc">{s.screen} → {s.control}.{s.property}</span>)}</span>
+                                    <span className="muted">UpdateContext() in: {v.setIn.map((s, si) => <span key={si} className="az-var-loc">{s.screen} â†’ {s.control}.{s.property}</span>)}</span>
                                   </div>
                                 ))}
                               </div>
@@ -3447,7 +3447,7 @@ function App() {
                       </div>
                     )}
 
-                    {/* ═══ TAB: Navigation ═══ */}
+                    {/* â•â•â• TAB: Navigation â•â•â• */}
                     {msappTab === 'navigation' && (
                       <div>
                         <div className="card mb-16">
@@ -3457,10 +3457,10 @@ function App() {
                               <div key={i} className="az-nav-row">
                                 <strong>{sm.screen}</strong>
                                 {sm.navigatesTo.length > 0 && (
-                                  <span className="az-nav-arrow">→ {sm.navigatesTo.map((to, ti) => <span key={ti} className="badge ml-4">{to}</span>)}</span>
+                                  <span className="az-nav-arrow">â†’ {sm.navigatesTo.map((to, ti) => <span key={ti} className="badge ml-4">{to}</span>)}</span>
                                 )}
                                 {sm.navigatesFrom.length > 0 && (
-                                  <span className="az-nav-from">← da {sm.navigatesFrom.map((fr, fi) => <span key={fi} className="badge badge-muted ml-4">{fr}</span>)}</span>
+                                  <span className="az-nav-from">â† da {sm.navigatesFrom.map((fr, fi) => <span key={fi} className="badge badge-muted ml-4">{fr}</span>)}</span>
                                 )}
                                 {sm.navigatesTo.length === 0 && sm.navigatesFrom.length === 0 && <span className="muted ml-8">(isolata)</span>}
                               </div>
@@ -3472,7 +3472,7 @@ function App() {
                           {d.navigations.map((nav, i) => (
                             <div key={i} className="az-op-row">
                               <span className="badge">{nav.from}</span>
-                              <span className="az-nav-arrow-icon">→</span>
+                              <span className="az-nav-arrow-icon">â†’</span>
                               <span className="badge">{nav.to}</span>
                               <span className="muted ml-8">({nav.control}.{nav.property})</span>
                             </div>
@@ -3481,7 +3481,7 @@ function App() {
                       </div>
                     )}
 
-                    {/* ═══ TAB: All Formulas ═══ */}
+                    {/* â•â•â• TAB: All Formulas â•â•â• */}
                     {msappTab === 'formulas' && (
                       <div>
                         <p className="muted mb-12">Totale: {filterFormulas(d.formulas).length} formule{q ? ` (filtrate da ${d.formulas.length})` : ''}</p>
@@ -3501,7 +3501,7 @@ function App() {
                       </div>
                     )}
 
-                    {/* ═══ TAB: Diff ═══ */}
+                    {/* â•â•â• TAB: Diff â•â•â• */}
                     {msappTab === 'diff' && (
                       <div>
                         <div className="card mb-16">
@@ -3569,8 +3569,8 @@ function App() {
                                   {df.screensModified.map((s, i) => (
                                     <div key={i} className="az-diff-item">
                                       <strong>{s.name}</strong>
-                                      <span className="muted ml-8">Controlli: {s.controlsBefore} → {s.controlsAfter}</span>
-                                      <span className="muted ml-8">Formule: {s.formulasBefore} → {s.formulasAfter}</span>
+                                      <span className="muted ml-8">Controlli: {s.controlsBefore} â†’ {s.controlsAfter}</span>
+                                      <span className="muted ml-8">Formule: {s.formulasBefore} â†’ {s.formulasAfter}</span>
                                     </div>
                                   ))}
                                 </div>
@@ -3626,7 +3626,7 @@ function App() {
             </div>
           )}
 
-          {/* ═══════ REPORT ═══════ */}
+          {/* â•â•â•â•â•â•â• REPORT â•â•â•â•â•â•â• */}
           {view === 'guide' && (
             <div className="view guide-view">
               <div className="view-header">
@@ -3641,7 +3641,7 @@ function App() {
                 <div className="guide-intro-icon">{mi('rocket_launch')}</div>
                 <div>
                   <h3>Benvenuto in FlowDesk!</h3>
-                  <p>FlowDesk è il tuo compagno di lavoro quotidiano per tracciare attività, tempo e modifiche su progetti Power Platform. Segui questi step nell'ordine suggerito per ottenere il massimo dall'app.</p>
+                  <p>FlowDesk Ã¨ il tuo compagno di lavoro quotidiano per tracciare attivitÃ , tempo e modifiche su progetti Power Platform. Segui questi step nell'ordine suggerito per ottenere il massimo dall'app.</p>
                 </div>
               </div>
 
@@ -3651,13 +3651,13 @@ function App() {
                 <div className="guide-step-body">
                   <h3>Crea i tuoi Progetti</h3>
                   <p className="guide-step-where">{mi('folder')} Sezione: <strong>Progetti</strong> &nbsp;|&nbsp; Shortcut: <strong>Ctrl+3</strong></p>
-                  <p>Il primo passo è creare i progetti su cui lavori. Ogni progetto ha un <strong>nome</strong>, un <strong>colore</strong> identificativo e una <strong>descrizione</strong> opzionale.</p>
-                  <p>I progetti servono a raggruppare task, modifiche, segnalibri, contatti, ambienti, bug e repository FDHub sotto un'unica entità. Potrai poi filtrare e vedere le statistiche per progetto.</p>
+                  <p>Il primo passo Ã¨ creare i progetti su cui lavori. Ogni progetto ha un <strong>nome</strong>, un <strong>colore</strong> identificativo e una <strong>descrizione</strong> opzionale.</p>
+                  <p>I progetti servono a raggruppare task, modifiche, segnalibri, contatti, ambienti, bug e repository FDHub sotto un'unica entitÃ . Potrai poi filtrare e vedere le statistiche per progetto.</p>
                   <ul>
                     <li>Vai nella sezione <strong>Progetti</strong> dalla sidebar</li>
                     <li>Compila il form con nome, colore e descrizione</li>
                     <li>Premi <strong>"Crea Progetto"</strong></li>
-                    <li>Puoi <strong>archiviare</strong> un progetto quando non è più attivo — non apparirà più nelle selezioni ma resterà nello storico</li>
+                    <li>Puoi <strong>archiviare</strong> un progetto quando non Ã¨ piÃ¹ attivo â€” non apparirÃ  piÃ¹ nelle selezioni ma resterÃ  nello storico</li>
                   </ul>
                 </div>
               </div>
@@ -3714,14 +3714,14 @@ function App() {
               <div className="card guide-step mb-16">
                 <div className="guide-step-num">5</div>
                 <div className="guide-step-body">
-                  <h3>Crea le Attività (Task)</h3>
-                  <p className="guide-step-where">{mi('task_alt')} Sezione: <strong>Attività</strong> &nbsp;|&nbsp; Shortcut: <strong>Ctrl+6</strong></p>
-                  <p>Le attività vengono organizzate su una <strong>Kanban Board</strong> a 3 colonne: <strong>Da fare → In corso → Fatto</strong>.</p>
+                  <h3>Crea le AttivitÃ  (Task)</h3>
+                  <p className="guide-step-where">{mi('task_alt')} Sezione: <strong>AttivitÃ </strong> &nbsp;|&nbsp; Shortcut: <strong>Ctrl+6</strong></p>
+                  <p>Le attivitÃ  vengono organizzate su una <strong>Kanban Board</strong> a 3 colonne: <strong>Da fare â†’ In corso â†’ Fatto</strong>.</p>
                   <ul>
-                    <li>Compila: titolo, descrizione, minuti pianificati, priorità (Alta/Media/Bassa) e progetto</li>
-                    <li>Premi <strong>"Crea Task"</strong> — il task appare nella colonna "Da fare"</li>
+                    <li>Compila: titolo, descrizione, minuti pianificati, prioritÃ  (Alta/Media/Bassa) e progetto</li>
+                    <li>Premi <strong>"Crea Task"</strong> â€” il task appare nella colonna "Da fare"</li>
                     <li>Premi <strong>"Inizia"</strong> per spostarlo in "In corso", poi <strong>"Completa"</strong> quando hai finito</li>
-                    <li>Usa <strong>"Duplica per domani"</strong> per attività ricorrenti</li>
+                    <li>Usa <strong>"Duplica per domani"</strong> per attivitÃ  ricorrenti</li>
                     <li>Associa <strong>Tag</strong> colorati per categorizzare i task</li>
                     <li>Salva un task come <strong>Template</strong> per riutilizzarlo velocemente</li>
                     <li>Apri il modale di modifica per aggiungere <strong>allegati</strong></li>
@@ -3738,10 +3738,10 @@ function App() {
                   <p>Mentre lavori su un task, usa il timer per misurare il tempo effettivo.</p>
                   <ul>
                     <li>Seleziona il task su cui stai lavorando</li>
-                    <li>Premi <strong>"Avvia Sessione"</strong> — il cronometro parte e si vede anche nella sidebar</li>
+                    <li>Premi <strong>"Avvia Sessione"</strong> â€” il cronometro parte e si vede anche nella sidebar</li>
                     <li>Quando finisci, premi <strong>"Ferma Sessione"</strong> e aggiungi una nota opzionale</li>
                   </ul>
-                  <p>Il <strong>Pomodoro</strong> è integrato: cicli di 25 min di focus + 5 min di pausa, con notifiche di sistema. Il badge nella sidebar mostra il tempo rimanente.</p>
+                  <p>Il <strong>Pomodoro</strong> Ã¨ integrato: cicli di 25 min di focus + 5 min di pausa, con notifiche di sistema. Il badge nella sidebar mostra il tempo rimanente.</p>
                 </div>
               </div>
 
@@ -3751,12 +3751,12 @@ function App() {
                 <div className="guide-step-body">
                   <h3>Registra le Modifiche (Change Log)</h3>
                   <p className="guide-step-where">{mi('assignment')} Sezione: <strong>Registro</strong> &nbsp;|&nbsp; Shortcut: <strong>Ctrl+R</strong></p>
-                  <p>Ogni volta che modifichi un artefatto Power Platform, documentalo nel registro. Questo è il cuore del tracciamento tecnico.</p>
+                  <p>Ogni volta che modifichi un artefatto Power Platform, documentalo nel registro. Questo Ã¨ il cuore del tracciamento tecnico.</p>
                   <ul>
                     <li>Seleziona il <strong>Tool</strong> (Power Apps, Power Automate, Power BI, Dataverse, SharePoint, Power Pages, Altro)</li>
                     <li>Inserisci il nome dell'<strong>Artefatto</strong> (es. "Screen_Home", "Flow_Approvazioni")</li>
                     <li>Scegli il <strong>Tipo di modifica</strong> (Creazione, Modifica, Fix, Eliminazione, Configurazione, Deploy)</li>
-                    <li>Scrivi un <strong>Riepilogo</strong> — opzionale: compila <strong>Prima/Dopo</strong></li>
+                    <li>Scrivi un <strong>Riepilogo</strong> â€” opzionale: compila <strong>Prima/Dopo</strong></li>
                     <li>Seleziona l'<strong>Esito del test</strong> (Passato, Fallito, Non testato)</li>
                     <li>Premi <strong>"Registra Modifica"</strong></li>
                   </ul>
@@ -3771,10 +3771,10 @@ function App() {
                   <p className="guide-step-where">{mi('bug_report')} Sezione: <strong>Bug Tracker</strong></p>
                   <p>Traccia bug e issue con un sistema dedicato:</p>
                   <ul>
-                    <li>Crea un bug con <strong>titolo</strong>, <strong>descrizione</strong>, <strong>severità</strong> (Critico, Alto, Medio, Basso), <strong>tool</strong>, <strong>artefatto</strong></li>
+                    <li>Crea un bug con <strong>titolo</strong>, <strong>descrizione</strong>, <strong>severitÃ </strong> (Critico, Alto, Medio, Basso), <strong>tool</strong>, <strong>artefatto</strong></li>
                     <li>Aggiungi i <strong>passi per riprodurre</strong> e la <strong>soluzione</strong></li>
-                    <li>Ogni card è colorata in base alla severità</li>
-                    <li>Cambia lo <strong>stato</strong> direttamente dalla card: Aperto → In Corso → Risolto → Chiuso</li>
+                    <li>Ogni card Ã¨ colorata in base alla severitÃ </li>
+                    <li>Cambia lo <strong>stato</strong> direttamente dalla card: Aperto â†’ In Corso â†’ Risolto â†’ Chiuso</li>
                     <li><strong>Allegati</strong> visibili direttamente nella card (screenshot, log, ecc.)</li>
                     <li>Filtra per tool con il selettore in alto</li>
                   </ul>
@@ -3820,8 +3820,8 @@ function App() {
                   <p className="guide-step-where">{mi('code')} <strong>Snippets</strong> (Ctrl+S) &nbsp;|&nbsp; {mi('bookmark')} <strong>Link utili</strong> (Ctrl+L)</p>
                   <p>Costruisci la tua libreria personale di codice e link:</p>
                   <ul>
-                    <li><strong>Snippets:</strong> salva frammenti PowerFx, DAX, M, JSON, SQL, JavaScript, TypeScript, HTML, CSS — copia con un click, segna i preferiti</li>
-                    <li><strong>Link utili:</strong> salva URL di ambienti, documentazione, repository, SharePoint, API — organizzati per categoria e progetto</li>
+                    <li><strong>Snippets:</strong> salva frammenti PowerFx, DAX, M, JSON, SQL, JavaScript, TypeScript, HTML, CSS â€” copia con un click, segna i preferiti</li>
+                    <li><strong>Link utili:</strong> salva URL di ambienti, documentazione, repository, SharePoint, API â€” organizzati per categoria e progetto</li>
                   </ul>
                 </div>
               </div>
@@ -3836,7 +3836,7 @@ function App() {
                   <ul>
                     <li>Aggiungi risorse: <strong>Corso</strong>, <strong>Certificazione</strong>, <strong>Libro</strong>, <strong>Video</strong>, <strong>Workshop</strong>, <strong>Documentazione</strong></li>
                     <li>Usa lo <strong>slider di progresso</strong> (0-100%) per tracciare l'avanzamento</li>
-                    <li>Aggiungi <strong>allegati</strong> (materiale, certificati) — visibili nella card e nel modale</li>
+                    <li>Aggiungi <strong>allegati</strong> (materiale, certificati) â€” visibili nella card e nel modale</li>
                     <li>Filtra per categoria con il selettore in alto</li>
                   </ul>
                 </div>
@@ -3848,14 +3848,14 @@ function App() {
                 <div className="guide-step-body">
                   <h3>Power Apps Analyzer</h3>
                   <p className="guide-step-where">{mi('analytics')} Sezione: <strong>Analyzer</strong> &nbsp;|&nbsp; Shortcut: <strong>Ctrl+P</strong></p>
-                  <p>Analizza in profondità file <strong>.msapp</strong> (Power Apps Canvas):</p>
+                  <p>Analizza in profonditÃ  file <strong>.msapp</strong> (Power Apps Canvas):</p>
                   <ul>
                     <li>Clicca <strong>"Carica .msapp"</strong> per selezionare un file dal PC</li>
-                    <li><strong>Health Score:</strong> punteggio A-F su Performance, Delegazione, Manutenibilità, Sicurezza, Accessibilità, Architettura</li>
+                    <li><strong>Health Score:</strong> punteggio A-F su Performance, Delegazione, ManutenibilitÃ , Sicurezza, AccessibilitÃ , Architettura</li>
                     <li><strong>Schermate:</strong> lista con conteggio controlli e formule per screen</li>
                     <li><strong>Formule:</strong> tutte le formule trovate, con ricerca</li>
                     <li><strong>DataSource:</strong> connettori e tabelle utilizzate</li>
-                    <li><strong>Issues:</strong> problemi e raccomandazioni categorizzate per severità</li>
+                    <li><strong>Issues:</strong> problemi e raccomandazioni categorizzate per severitÃ </li>
                     <li><strong>Matrice Dati:</strong> visualizzazione read/write per ogni data source</li>
                   </ul>
                 </div>
@@ -3865,9 +3865,9 @@ function App() {
               <div className="card guide-step mb-16">
                 <div className="guide-step-num">14</div>
                 <div className="guide-step-body">
-                  <h3>FDHub — Version Control Locale</h3>
+                  <h3>FDHub â€” Version Control Locale</h3>
                   <p className="guide-step-where">{mi('hub')} Sezione: <strong>FDHub</strong> &nbsp;|&nbsp; Shortcut: <strong>Ctrl+H</strong></p>
-                  <p>Un "GitHub locale" per le tue Power Apps — versiona, confronta e scarica i file .msapp:</p>
+                  <p>Un "GitHub locale" per le tue Power Apps â€” versiona, confronta e scarica i file .msapp:</p>
                   <ul>
                     <li><strong>Repository:</strong> crea repository con nome, descrizione e progetto associato</li>
                     <li><strong>Commit:</strong> scrivi un messaggio + tag opzionale (es. "v1.0"), poi clicca <strong>"Committa .msapp"</strong> per selezionare il file</li>
@@ -3903,7 +3903,7 @@ function App() {
                   <p className="guide-step-where">{mi('psychology')} Sezione: <strong>Retrospettive</strong></p>
                   <p>A fine sprint o settimana, fai una retrospettiva:</p>
                   <ul>
-                    <li>Compila: <strong>cosa è andato bene</strong>, <strong>cosa migliorare</strong>, <strong>azioni da intraprendere</strong></li>
+                    <li>Compila: <strong>cosa Ã¨ andato bene</strong>, <strong>cosa migliorare</strong>, <strong>azioni da intraprendere</strong></li>
                     <li>Tutte le retro sono elencate in ordine cronologico per consultazione futura</li>
                   </ul>
                 </div>
@@ -3917,8 +3917,8 @@ function App() {
                   <p className="guide-step-where">{mi('trending_up')} <strong>Statistiche</strong> &nbsp;|&nbsp; {mi('calendar_month')} <strong>Storico</strong> &nbsp;|&nbsp; {mi('description')} <strong>Report</strong></p>
                   <p>Analizza il tuo lavoro e genera output condivisibili:</p>
                   <ul>
-                    <li><strong>Statistiche:</strong> grafici settimanali — tempo giornaliero, uso tool, stato task, tipi di modifica, obiettivi. Puoi esportare in <strong>CSV</strong></li>
-                    <li><strong>Storico:</strong> calendario mensile — clicca su un giorno per il riepilogo completo</li>
+                    <li><strong>Statistiche:</strong> grafici settimanali â€” tempo giornaliero, uso tool, stato task, tipi di modifica, obiettivi. Puoi esportare in <strong>CSV</strong></li>
+                    <li><strong>Storico:</strong> calendario mensile â€” clicca su un giorno per il riepilogo completo</li>
                     <li><strong>Report:</strong> genera un report strutturato della giornata e copialo con un click per condividerlo su Teams, email, ecc.</li>
                   </ul>
                 </div>
@@ -3930,12 +3930,12 @@ function App() {
                 <div className="guide-step-body">
                   <h3>Allegati</h3>
                   <p className="guide-step-where">{mi('attach_file')} Disponibile in: Task, Note, Bug, Contatti, Ambienti, Formazione</p>
-                  <p>Sistema universale di allegati per aggiungere file a qualsiasi entità:</p>
+                  <p>Sistema universale di allegati per aggiungere file a qualsiasi entitÃ :</p>
                   <ul>
                     <li>Clicca <strong>"Allegati"</strong> per espandere la sezione, poi il pulsante <strong>+</strong> per selezionare file dal PC</li>
                     <li>Clicca il <strong>nome del file</strong> per aprirlo con l'app predefinita del sistema</li>
                     <li>Ogni allegato mostra icona, nome e dimensione</li>
-                    <li>I file sono salvati nella cartella del database — se usi <strong>OneDrive</strong>, vengono sincronizzati automaticamente</li>
+                    <li>I file sono salvati nella cartella del database â€” se usi <strong>OneDrive</strong>, vengono sincronizzati automaticamente</li>
                   </ul>
                 </div>
               </div>
@@ -3951,13 +3951,13 @@ function App() {
                   </div>
                   <div className="guide-tip-card">
                     <span className="guide-tip-icon">{mi('dark_mode')}</span>
-                    <strong>Ctrl+D — Dark Mode</strong>
-                    <p>Attivalo dalla sidebar, dalla Command Palette o con Ctrl+D — la preferenza resta salvata</p>
+                    <strong>Ctrl+D â€” Dark Mode</strong>
+                    <p>Attivalo dalla sidebar, dalla Command Palette o con Ctrl+D â€” la preferenza resta salvata</p>
                   </div>
                   <div className="guide-tip-card">
                     <span className="guide-tip-icon">{mi('cloud_sync')}</span>
                     <strong>OneDrive</strong>
-                    <p>Salva il database su OneDrive per sincronizzare dati e allegati tra dispositivi. Usa: Database → Migra su OneDrive</p>
+                    <p>Salva il database su OneDrive per sincronizzare dati e allegati tra dispositivi. Usa: Database â†’ Migra su OneDrive</p>
                   </div>
                   <div className="guide-tip-card">
                     <span className="guide-tip-icon">{mi('local_fire_department')}</span>
@@ -3966,7 +3966,7 @@ function App() {
                   </div>
                   <div className="guide-tip-card">
                     <span className="guide-tip-icon">{mi('search')}</span>
-                    <strong>Ctrl+F — Ricerca</strong>
+                    <strong>Ctrl+F â€” Ricerca</strong>
                     <p>Cerca tra task, modifiche e note contemporaneamente dalla sezione Ricerca</p>
                   </div>
                   <div className="guide-tip-card">
@@ -3998,19 +3998,19 @@ function App() {
             function buildReportHtml() {
               const dateStr = dateLong(rptDate);
               let h = `<div class="header"><div class="header-left"><h1>Report Giornaliero</h1><div class="subtitle">${dateStr}</div></div><div class="header-right"><div>FlowDesk v${appVersion}</div></div></div>`;
-              h += `<div class="kpi-row"><div class="kpi"><div class="num">${rGoalsDone}/${rptGoals.length}</div><div class="lbl">Obiettivi</div></div><div class="kpi"><div class="num">${rDoneTasks.length}/${rptTasks.length}</div><div class="lbl">Attività completate</div></div><div class="kpi"><div class="num">${fmtMin(rTotalMin)}</div><div class="lbl">Tempo tracciato</div></div><div class="kpi"><div class="num">${rptChanges.length}</div><div class="lbl">Modifiche</div></div></div>`;
+              h += `<div class="kpi-row"><div class="kpi"><div class="num">${rGoalsDone}/${rptGoals.length}</div><div class="lbl">Obiettivi</div></div><div class="kpi"><div class="num">${rDoneTasks.length}/${rptTasks.length}</div><div class="lbl">AttivitÃ  completate</div></div><div class="kpi"><div class="num">${fmtMin(rTotalMin)}</div><div class="lbl">Tempo tracciato</div></div><div class="kpi"><div class="num">${rptChanges.length}</div><div class="lbl">Modifiche</div></div></div>`;
               if (rptGoals.length) {
-                h += `<h2>Obiettivi</h2><table><tr><th style="width:40px">✓</th><th>Obiettivo</th></tr>`;
-                rptGoals.forEach(g => { h += `<tr><td style="text-align:center">${g.isDone ? '✅' : '⬜'}</td><td>${g.text}</td></tr>`; });
+                h += `<h2>Obiettivi</h2><table><tr><th style="width:40px">âœ“</th><th>Obiettivo</th></tr>`;
+                rptGoals.forEach(g => { h += `<tr><td style="text-align:center">${g.isDone ? 'âœ…' : 'â¬œ'}</td><td>${g.text}</td></tr>`; });
                 h += `</table>`;
               }
               if (rptTasks.length) {
-                h += `<h2>Attività</h2><table><tr><th>Task</th><th>Stato</th><th>Priorità</th><th style="text-align:right">Tempo</th></tr>`;
+                h += `<h2>AttivitÃ </h2><table><tr><th>Task</th><th>Stato</th><th>PrioritÃ </th><th style="text-align:right">Tempo</th></tr>`;
                 rptTasks.forEach(tk => {
                   const tMin = rptSessions.filter(s => s.taskId === tk.id).reduce((a, s) => a + (s.durationMinutes || 0), 0);
                   const stLbl = STATUS_LABEL[tk.status];
                   const stCls = tk.status === 'Done' ? 'done' : tk.status === 'Doing' ? 'doing' : 'todo';
-                  h += `<tr><td>${tk.title}</td><td><span class="${stCls}">${stLbl}</span></td><td><span class="badge ${tk.priority.toLowerCase()}">${PRI_LABEL[tk.priority]}</span></td><td style="text-align:right">${tMin ? fmtMin(tMin) : '—'}</td></tr>`;
+                  h += `<tr><td>${tk.title}</td><td><span class="${stCls}">${stLbl}</span></td><td><span class="badge ${tk.priority.toLowerCase()}">${PRI_LABEL[tk.priority]}</span></td><td style="text-align:right">${tMin ? fmtMin(tMin) : 'â€”'}</td></tr>`;
                 });
                 h += `</table>`;
               }
@@ -4019,7 +4019,7 @@ function App() {
                 rptSessions.forEach(s => {
                   const st = new Date(s.startedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
                   const en = s.endedAt ? new Date(s.endedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : 'in corso';
-                  h += `<tr><td>${s.taskTitle}</td><td class="session-time">${st}</td><td class="session-time">${en}</td><td style="text-align:right">${s.durationMinutes || '?'}m</td><td>${s.note || '—'}</td></tr>`;
+                  h += `<tr><td>${s.taskTitle}</td><td class="session-time">${st}</td><td class="session-time">${en}</td><td style="text-align:right">${s.durationMinutes || '?'}m</td><td>${s.note || 'â€”'}</td></tr>`;
                 });
                 h += `</table>`;
               }
@@ -4035,7 +4035,7 @@ function App() {
                 h += `<h2>Appunti</h2>`;
                 rptNotes.forEach(n => { h += `<div class="note-block"><strong>[${n.category}] ${n.title}</strong>${n.content ? '<br>' + n.content : ''}</div>`; });
               }
-              h += `<div class="footer">Report generato con <strong>FlowDesk</strong> — ${dateStr}</div>`;
+              h += `<div class="footer">Report generato con <strong>FlowDesk</strong> â€” ${dateStr}</div>`;
               return h;
             }
 
@@ -4056,7 +4056,7 @@ function App() {
               {/* KPI Row */}
               <div className="kpi-row mb-20">
                 <div className="kpi-card"><div className="kpi-icon ki-goals">{mi('flag')}</div><div><span className="kpi-value">{rGoalsDone}/{rptGoals.length}</span><span className="kpi-label">Obiettivi</span></div></div>
-                <div className="kpi-card"><div className="kpi-icon ki-tasks">{mi('task_alt')}</div><div><span className="kpi-value">{rDoneTasks.length}/{rptTasks.length}</span><span className="kpi-label">Attività</span></div></div>
+                <div className="kpi-card"><div className="kpi-icon ki-tasks">{mi('task_alt')}</div><div><span className="kpi-value">{rDoneTasks.length}/{rptTasks.length}</span><span className="kpi-label">AttivitÃ </span></div></div>
                 <div className="kpi-card"><div className="kpi-icon ki-time">{mi('timer')}</div><div><span className="kpi-value">{fmtMin(rTotalMin)}</span><span className="kpi-label">Tempo tracciato</span></div></div>
                 <div className="kpi-card"><div className="kpi-icon ki-changes">{mi('assignment')}</div><div><span className="kpi-value">{rptChanges.length}</span><span className="kpi-label">Modifiche</span></div></div>
               </div>
@@ -4071,7 +4071,7 @@ function App() {
                   </div>
                 </div>
                 <div className="card">
-                  <h4>{mi('task_alt')} Progresso Attività</h4>
+                  <h4>{mi('task_alt')} Progresso AttivitÃ </h4>
                   <div className="report-progress-bar">
                     <div className="report-progress-track"><div className="report-progress-fill" style={{ width: `${rTaskPct}%`, background: rTaskPct >= 80 ? '#16a34a' : rTaskPct >= 50 ? '#ca8a04' : '#ef4444' }} /></div>
                     <span className="report-progress-label">{rTaskPct}%</span>
@@ -4094,13 +4094,13 @@ function App() {
                 </div>
               )}
 
-              {/* Attività — Tabella professionale */}
+              {/* AttivitÃ  â€” Tabella professionale */}
               {rptTasks.length > 0 && (
                 <div className="card mb-16">
-                  <h3 className="report-section-title">{mi('task_alt')} Attività ({rDoneTasks.length} completate su {rptTasks.length})</h3>
+                  <h3 className="report-section-title">{mi('task_alt')} AttivitÃ  ({rDoneTasks.length} completate su {rptTasks.length})</h3>
                   <table className="report-table">
                     <thead>
-                      <tr><th>Attività</th><th>Stato</th><th>Priorità</th><th>Progetto</th><th style={{ textAlign: 'right' }}>Tempo</th></tr>
+                      <tr><th>AttivitÃ </th><th>Stato</th><th>PrioritÃ </th><th>Progetto</th><th style={{ textAlign: 'right' }}>Tempo</th></tr>
                     </thead>
                     <tbody>
                       {rptTasks.map(tk => {
@@ -4111,8 +4111,8 @@ function App() {
                             <td><strong>{tk.title}</strong>{tk.description && <div className="report-task-desc">{tk.description}</div>}</td>
                             <td><span className={`badge badge-status-${tk.status.toLowerCase()}`}>{STATUS_LABEL[tk.status]}</span></td>
                             <td><span className={`badge badge-${tk.priority.toLowerCase()}`}>{PRI_LABEL[tk.priority]}</span></td>
-                            <td>{proj ? <span className="tag-badge" style={{ background: proj.color }}>{proj.name}</span> : <span className="muted">—</span>}</td>
-                            <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{tMin ? fmtMin(tMin) : '—'}</td>
+                            <td>{proj ? <span className="tag-badge" style={{ background: proj.color }}>{proj.name}</span> : <span className="muted">â€”</span>}</td>
+                            <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{tMin ? fmtMin(tMin) : 'â€”'}</td>
                           </tr>
                         );
                       })}
@@ -4139,7 +4139,7 @@ function App() {
                             <td style={{ fontFamily: 'monospace' }}>{st}</td>
                             <td style={{ fontFamily: 'monospace' }}>{en}</td>
                             <td style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{s.durationMinutes || '?'}m</td>
-                            <td className="muted">{s.note || '—'}</td>
+                            <td className="muted">{s.note || 'â€”'}</td>
                           </tr>
                         );
                       })}
@@ -4173,7 +4173,7 @@ function App() {
                 </div>
               )}
 
-              {/* Modifiche registrate — raggruppate per tool */}
+              {/* Modifiche registrate â€” raggruppate per tool */}
               {rptChanges.length > 0 && (
                 <div className="card mb-16">
                   <h3 className="report-section-title">{mi('assignment')} Modifiche Registrate ({rptChanges.length})</h3>
@@ -4219,20 +4219,20 @@ function App() {
                 <div className="card ta-c" style={{ padding: '60px 20px' }}>
                   <div style={{ fontSize: 48, opacity: 0.3 }}>{mi('description')}</div>
                   <p className="muted mt-16">Nessun dato per questa giornata.</p>
-                  <p className="muted">Seleziona una data diversa o inizia a registrare attività, modifiche e obiettivi.</p>
+                  <p className="muted">Seleziona una data diversa o inizia a registrare attivitÃ , modifiche e obiettivi.</p>
                 </div>
               )}
             </div>
             );
           })()}
 
-          {/* ═══════ FDHUB ═══════ */}
+          {/* â•â•â•â•â•â•â• FDHUB â•â•â•â•â•â•â• */}
           {view === 'fdhub' && (
             <div className="view">
               <div className="view-header">
                 <div>
                   <h2 className="view-title">{mi('hub')} FDHub</h2>
-                  <p className="view-sub">Version control locale per le tue Power Apps — committa, confronta e traccia le versioni</p>
+                  <p className="view-sub">Version control locale per le tue Power Apps â€” committa, confronta e traccia le versioni</p>
                 </div>
               </div>
 
@@ -4249,7 +4249,7 @@ function App() {
                   }}>
                     <input className="fg-2" placeholder="Nome repository..." value={fdhubRepoName} onChange={e => setFdhubRepoName(e.target.value)} required />
                     <select className="fg-1" value={fdhubRepoProjId} onChange={e => setFdhubRepoProjId(e.target.value === '' ? '' : Number(e.target.value))}>
-                      <option value="">— Progetto —</option>
+                      <option value="">â€” Progetto â€”</option>
                       {projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                     <button className="btn-primary" type="submit">{mi('add')} Crea</button>
@@ -4267,7 +4267,7 @@ function App() {
                       }}>
                         <div className="fdhub-repo-info">
                           <strong>{r.name}</strong>
-                          {r.description && <span className="text-muted"> — {r.description}</span>}
+                          {r.description && <span className="text-muted"> â€” {r.description}</span>}
                           {r.projectId && projects.find(p => p.id === r.projectId) && (
                             <span className="tag-badge" style={{ background: projects.find(p => p.id === r.projectId)?.color }}>{projects.find(p => p.id === r.projectId)?.name}</span>
                           )}
@@ -4293,7 +4293,7 @@ function App() {
                     {/* New commit form */}
                     <div className="card mb-16">
                       <h3>{mi('commit')} Nuovo Commit</h3>
-                      <p className="text-muted mb-8">Seleziona un file .msapp — verrà copiato nel repository e analizzato automaticamente.</p>
+                      <p className="text-muted mb-8">Seleziona un file .msapp â€” verrÃ  copiato nel repository e analizzato automaticamente.</p>
                       <form className="form-row mb-8" onSubmit={async (e: FormEvent) => {
                         e.preventDefault();
                         if (!api || !fdhubCommitMsg.trim() || fdhubCommitting) return;
@@ -4332,11 +4332,11 @@ function App() {
                         <h3>{mi('compare_arrows')} Confronta Commit</h3>
                         <div className="form-row mb-8">
                           <select className="fg-1" value={fdhubDiffA} onChange={e => setFdhubDiffA(e.target.value === '' ? '' : Number(e.target.value))}>
-                            <option value="">— Commit A (vecchio) —</option>
+                            <option value="">â€” Commit A (vecchio) â€”</option>
                             {fdhubCommits.map(c => <option key={c.id} value={c.id}>#{c.id} {c.message}{c.tag ? ` [${c.tag}]` : ''}</option>)}
                           </select>
                           <select className="fg-1" value={fdhubDiffB} onChange={e => setFdhubDiffB(e.target.value === '' ? '' : Number(e.target.value))}>
-                            <option value="">— Commit B (nuovo) —</option>
+                            <option value="">â€” Commit B (nuovo) â€”</option>
                             {fdhubCommits.map(c => <option key={c.id} value={c.id}>#{c.id} {c.message}{c.tag ? ` [${c.tag}]` : ''}</option>)}
                           </select>
                           <button className="btn-primary" disabled={fdhubDiffA === '' || fdhubDiffB === '' || fdhubDiffLoading} onClick={async () => {
@@ -4407,7 +4407,7 @@ function App() {
             </div>
           )}
 
-          {/* ═══════ SHAREPOINT ═══════ */}
+          {/* â•â•â•â•â•â•â• SHAREPOINT â•â•â•â•â•â•â• */}
           {view === 'sharepoint' && (() => {
             const spLoadConfig = async () => {
               if (!api) return;
@@ -4630,15 +4630,15 @@ function App() {
                   <div className="sp-help mt-20">
                     <h4>{mi('help')} Come configurare Azure</h4>
                     <ol className="sp-help-steps">
-                      <li>Vai su <strong>portal.azure.com</strong> → Microsoft Entra ID → App registrations → <strong>New registration</strong></li>
+                      <li>Vai su <strong>portal.azure.com</strong> â†’ Microsoft Entra ID â†’ App registrations â†’ <strong>New registration</strong></li>
                       <li>Nome: <code>FlowDesk</code>, Redirect URI: <strong>http://localhost:59823/redirect</strong> (tipo: Web)</li>
                       <li>Copia <strong>Application (client) ID</strong> e <strong>Directory (tenant) ID</strong> dalla pagina Overview</li>
-                      <li>Vai su <strong>API permissions</strong> → Add a permission → Microsoft Graph → Delegated:</li>
+                      <li>Vai su <strong>API permissions</strong> â†’ Add a permission â†’ Microsoft Graph â†’ Delegated:</li>
                       <li className="sp-perm-list">
                         <code>Sites.ReadWrite.All</code>, <code>Files.ReadWrite.All</code>, <code>User.Read</code>
                       </li>
                       <li>Clicca <strong>Grant admin consent</strong> (richiede un admin del tenant)</li>
-                      <li>In <strong>Authentication</strong> → abilita <strong>"Allow public client flows"</strong> → Yes</li>
+                      <li>In <strong>Authentication</strong> â†’ abilita <strong>"Allow public client flows"</strong> â†’ Yes</li>
                       <li>Incolla qui sopra i valori e l'URL del sito SharePoint, poi clicca <strong>Connetti</strong></li>
                     </ol>
                   </div>
@@ -4661,7 +4661,7 @@ function App() {
                             <div className="sp-list-card-body">
                               <strong>{l.name}</strong>
                               {l.description && <p className="muted small">{l.description}</p>}
-                              <span className="muted small">{l.template} · {new Date(l.lastModified).toLocaleDateString('it-IT')}</span>
+                              <span className="muted small">{l.template} Â· {new Date(l.lastModified).toLocaleDateString('it-IT')}</span>
                             </div>
                             <span className="material-symbols-outlined sp-list-arrow">chevron_right</span>
                           </div>
@@ -4687,7 +4687,7 @@ function App() {
                                 <label>{col.displayName}{col.required && <span className="sp-req"> *</span>}</label>
                                 {col.type === 'choice' ? (
                                   <select value={spNewItemFields[col.name] || ''} onChange={e => setSpNewItemFields({ ...spNewItemFields, [col.name]: e.target.value })}>
-                                    <option value="">—</option>
+                                    <option value="">â€”</option>
                                     {col.choices.map(ch => <option key={ch} value={ch}>{ch}</option>)}
                                   </select>
                                 ) : (
@@ -4722,7 +4722,7 @@ function App() {
                                       <input className="sp-inline-edit" value={spEditFields[c.name] || ''}
                                         onChange={e => setSpEditFields({ ...spEditFields, [c.name]: e.target.value })} />
                                     ) : (
-                                      String(item.fields[c.name] ?? '—')
+                                      String(item.fields[c.name] ?? 'â€”')
                                     )}
                                   </td>
                                 ))}
@@ -4807,7 +4807,7 @@ function App() {
                             <span className="material-symbols-outlined sp-file-icon">{item.isFolder ? 'folder' : 'description'}</span>
                             <div className="sp-file-info fg-1" onClick={() => item.isFolder ? spOpenFolder(item) : undefined} style={item.isFolder ? { cursor: 'pointer' } : undefined}>
                               <strong>{item.name}</strong>
-                              <span className="muted small">{item.isFolder ? `${item.childCount} elementi` : fmtBytes(item.size)} · {item.createdBy} · {new Date(item.lastModified).toLocaleDateString('it-IT')}</span>
+                              <span className="muted small">{item.isFolder ? `${item.childCount} elementi` : fmtBytes(item.size)} Â· {item.createdBy} Â· {new Date(item.lastModified).toLocaleDateString('it-IT')}</span>
                             </div>
                             <div className="sp-file-actions">
                               {!item.isFolder && (
@@ -4832,7 +4832,7 @@ function App() {
             );
           })()}
 
-          {/* ═══════ UPDATES ═══════ */}
+          {/* â•â•â•â•â•â•â• UPDATES â•â•â•â•â•â•â• */}
           {view === 'updates' && (() => {
             const doCheck = async () => {
               if (!api) return;
@@ -4850,13 +4850,13 @@ function App() {
             return (
             <div className="view">
               <div className="view-header">
-                <div><h2 className="view-title">Aggiornamenti</h2><p className="view-sub">Verifica se è disponibile una nuova versione di FlowDesk</p></div>
+                <div><h2 className="view-title">Aggiornamenti</h2><p className="view-sub">Verifica se Ã¨ disponibile una nuova versione di FlowDesk</p></div>
               </div>
 
               {/* Current version card */}
               <div className="card mb-20">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                  <span className="material-symbols-rounded" style={{ fontSize: 48, color: 'var(--clr-accent)' }}>system_update</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: 48, color: 'var(--clr-accent)' }}>system_update</span>
                   <div>
                     <h3 style={{ margin: 0 }}>FlowDesk</h3>
                     <p style={{ margin: '4px 0 0', color: 'var(--clr-muted)', fontSize: '0.95rem' }}>
@@ -4883,7 +4883,7 @@ function App() {
                 <div className="card mb-20">
                   {updateInfo.error ? (
                     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                      <span className="material-symbols-rounded" style={{ fontSize: 28, color: '#e67e22', flexShrink: 0 }}>warning</span>
+                      <span className="material-symbols-outlined" style={{ fontSize: 28, color: '#e67e22', flexShrink: 0 }}>warning</span>
                       <div>
                         <strong>Impossibile verificare gli aggiornamenti</strong>
                         <p style={{ margin: '4px 0 0', color: 'var(--clr-muted)' }}>{updateInfo.error}</p>
@@ -4892,11 +4892,11 @@ function App() {
                     </div>
                   ) : updateInfo.upToDate ? (
                     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                      <span className="material-symbols-rounded" style={{ fontSize: 28, color: '#27ae60', flexShrink: 0 }}>check_circle</span>
+                      <span className="material-symbols-outlined" style={{ fontSize: 28, color: '#27ae60', flexShrink: 0 }}>check_circle</span>
                       <div>
                         <strong style={{ color: '#27ae60' }}>Sei aggiornato!</strong>
                         <p style={{ margin: '4px 0 0', color: 'var(--clr-muted)' }}>
-                          FlowDesk <strong>v{updateInfo.currentVersion}</strong> è l'ultima versione disponibile.
+                          FlowDesk <strong>v{updateInfo.currentVersion}</strong> Ã¨ l'ultima versione disponibile.
                           {updateInfo.message && <><br />{updateInfo.message}</>}
                         </p>
                       </div>
@@ -4904,11 +4904,11 @@ function App() {
                   ) : (
                     <div>
                       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 16 }}>
-                        <span className="material-symbols-rounded" style={{ fontSize: 28, color: 'var(--clr-accent)', flexShrink: 0 }}>upgrade</span>
+                        <span className="material-symbols-outlined" style={{ fontSize: 28, color: 'var(--clr-accent)', flexShrink: 0 }}>upgrade</span>
                         <div>
                           <strong style={{ color: 'var(--clr-accent)' }}>Nuova versione disponibile!</strong>
                           <p style={{ margin: '4px 0 0', color: 'var(--clr-muted)' }}>
-                            La versione <strong style={{ color: 'var(--clr-text)' }}>v{updateInfo.latestVersion}</strong> è disponibile. Tu hai la <strong>v{updateInfo.currentVersion}</strong>.
+                            La versione <strong style={{ color: 'var(--clr-text)' }}>v{updateInfo.latestVersion}</strong> Ã¨ disponibile. Tu hai la <strong>v{updateInfo.currentVersion}</strong>.
                           </p>
                           {updateInfo.releaseName && <p style={{ margin: '4px 0 0', fontWeight: 600 }}>{updateInfo.releaseName}</p>}
                           {updateInfo.publishedAt && <p style={{ margin: '2px 0 0', fontSize: '0.85rem', color: 'var(--clr-muted)' }}>Pubblicata il {new Date(updateInfo.publishedAt).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })}</p>}
@@ -4939,14 +4939,14 @@ function App() {
               {/* Info */}
               <div className="card" style={{ border: '1px solid var(--clr-border)' }}>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                  <span className="material-symbols-rounded" style={{ fontSize: 24, color: 'var(--clr-accent)', flexShrink: 0, marginTop: 2 }}>info</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: 24, color: 'var(--clr-accent)', flexShrink: 0, marginTop: 2 }}>info</span>
                   <div style={{ fontSize: '0.88rem', lineHeight: 1.6, color: 'var(--clr-muted)' }}>
                     <strong style={{ color: 'var(--clr-text)' }}>Come aggiornare FlowDesk</strong><br />
                     1. Clicca <em>"Scarica"</em> o visita la pagina delle release<br />
                     2. Scarica il file <code>.exe</code> dell'ultima versione<br />
                     3. Chiudi FlowDesk<br />
-                    4. Esegui l'installer — sovrascriverà la versione precedente mantenendo i tuoi dati<br />
-                    5. Riavvia FlowDesk ✓
+                    4. Esegui l'installer â€” sovrascriverÃ  la versione precedente mantenendo i tuoi dati<br />
+                    5. Riavvia FlowDesk âœ“
                   </div>
                 </div>
               </div>
@@ -4957,17 +4957,17 @@ function App() {
         </div>
       </main>
 
-      {/* ═══ Edit Task Modal ═══ */}
+      {/* â•â•â• Edit Task Modal â•â•â• */}
       {editTask && (() => { const et = editTask; return (
         <div className="edit-overlay" onClick={() => setEditTask(null)}>
           <div className="edit-modal" onClick={e => e.stopPropagation()}>
-            <div className="edit-modal-head"><h3>Modifica attività</h3><button className="btn-icon btn-del" onClick={() => setEditTask(null)}>{mi('close')}</button></div>
+            <div className="edit-modal-head"><h3>Modifica attivitÃ </h3><button className="btn-icon btn-del" onClick={() => setEditTask(null)}>{mi('close')}</button></div>
             <div className="form-group"><label>Titolo</label><input value={et.title} onChange={e => setEditTask({ ...et, title: e.target.value })} /></div>
             <div className="form-group"><label>Descrizione</label><textarea value={et.description} onChange={e => setEditTask({ ...et, description: e.target.value })} /></div>
             <div className="form-row mb-12">
               <div className="form-group fg-1"><label>Minuti</label><input type="number" min={5} value={et.plannedMinutes} onChange={e => setEditTask({ ...et, plannedMinutes: Number(e.target.value) })} /></div>
-              <div className="form-group fg-1"><label>Priorità</label><select value={et.priority} onChange={e => setEditTask({ ...et, priority: e.target.value as Priority })}>{PRIORITIES.map(p => <option key={p} value={p}>{PRI_LABEL[p]}</option>)}</select></div>
-              <div className="form-group fg-1"><label>Progetto</label><select value={et.projectId ?? ''} onChange={e => setEditTask({ ...et, projectId: e.target.value === '' ? null : Number(e.target.value) })}><option value="">— Nessuno —</option>{projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+              <div className="form-group fg-1"><label>PrioritÃ </label><select value={et.priority} onChange={e => setEditTask({ ...et, priority: e.target.value as Priority })}>{PRIORITIES.map(p => <option key={p} value={p}>{PRI_LABEL[p]}</option>)}</select></div>
+              <div className="form-group fg-1"><label>Progetto</label><select value={et.projectId ?? ''} onChange={e => setEditTask({ ...et, projectId: e.target.value === '' ? null : Number(e.target.value) })}><option value="">â€” Nessuno â€”</option>{projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
             </div>
             <AttachmentSection entityType="task" entityId={et.id} />
             <div className="form-row">
@@ -4978,7 +4978,7 @@ function App() {
         </div>
       ); })()}
 
-      {/* ═══ Edit Note Modal ═══ */}
+      {/* â•â•â• Edit Note Modal â•â•â• */}
       {editNote && (() => { const en = editNote; return (
         <div className="edit-overlay" onClick={() => setEditNote(null)}>
           <div className="edit-modal" onClick={e => e.stopPropagation()}>
@@ -4997,7 +4997,7 @@ function App() {
         </div>
       ); })()}
 
-      {/* ═══ Edit Snippet Modal ═══ */}
+      {/* â•â•â• Edit Snippet Modal â•â•â• */}
       {editSnippet && (() => { const es = editSnippet; return (
         <div className="edit-overlay" onClick={() => setEditSnippet(null)}>
           <div className="edit-modal edit-modal-wide" onClick={e => e.stopPropagation()}>
@@ -5016,7 +5016,7 @@ function App() {
         </div>
       ); })()}
 
-      {/* ═══ Reset Confirm Modal ═══ */}
+      {/* â•â•â• Reset Confirm Modal â•â•â• */}
       {resetConfirmOpen && (
         <div className="edit-overlay" onClick={() => setResetConfirmOpen(false)}>
           <div className="edit-modal reset-modal" onClick={e => e.stopPropagation()}>
@@ -5024,7 +5024,7 @@ function App() {
             {!resetDone ? (<>
               <div className="reset-warning">
                 <span className="material-symbols-outlined reset-warning-icon">error</span>
-                <p>Stai per cancellare <strong>TUTTI</strong> i dati dell'applicazione. Questa operazione è <strong>irreversibile</strong>.</p>
+                <p>Stai per cancellare <strong>TUTTI</strong> i dati dell'applicazione. Questa operazione Ã¨ <strong>irreversibile</strong>.</p>
               </div>
               <div className="form-group">
                 <label>Scrivi <strong>ELIMINA</strong> per confermare:</label>
@@ -5045,12 +5045,12 @@ function App() {
         </div>
       )}
 
-      {/* ═══ Edit Retrospective ═══ */}
+      {/* â•â•â• Edit Retrospective â•â•â• */}
       {editRetro && (
         <div className="edit-overlay" onClick={() => setEditRetro(null)}>
           <div className="edit-modal" onClick={e => e.stopPropagation()}>
             <div className="edit-modal-head"><h3>{mi('edit')} Modifica retrospettiva</h3><button className="btn-icon btn-del" onClick={() => setEditRetro(null)}>{mi('close')}</button></div>
-            <div className="form-group"><label>{mi('thumb_up')} Cosa è andato bene</label><textarea value={editRetro.wentWell} onChange={e => setEditRetro({ ...editRetro, wentWell: e.target.value })} rows={3} /></div>
+            <div className="form-group"><label>{mi('thumb_up')} Cosa Ã¨ andato bene</label><textarea value={editRetro.wentWell} onChange={e => setEditRetro({ ...editRetro, wentWell: e.target.value })} rows={3} /></div>
             <div className="form-group"><label>{mi('construction')} Cosa migliorare</label><textarea value={editRetro.toImprove} onChange={e => setEditRetro({ ...editRetro, toImprove: e.target.value })} rows={3} /></div>
             <div className="form-group"><label>{mi('rocket_launch')} Azioni</label><textarea value={editRetro.actions} onChange={e => setEditRetro({ ...editRetro, actions: e.target.value })} rows={3} /></div>
             <div className="form-row mt-16"><button className="btn-primary fg-1" onClick={onSaveEditRetro}>{mi('save')} Salva</button><button className="btn-secondary fg-1" onClick={() => setEditRetro(null)}>Annulla</button></div>
@@ -5058,14 +5058,14 @@ function App() {
         </div>
       )}
 
-      {/* ═══ Edit Bug ═══ */}
+      {/* â•â•â• Edit Bug â•â•â• */}
       {editBug && (
         <div className="edit-overlay" onClick={() => setEditBug(null)}>
           <div className="edit-modal" onClick={e => e.stopPropagation()}>
             <div className="edit-modal-head"><h3>{mi('edit')} Modifica bug</h3><button className="btn-icon btn-del" onClick={() => setEditBug(null)}>{mi('close')}</button></div>
             <div className="form-group"><label>Titolo</label><input value={editBug.title} onChange={e => setEditBug({ ...editBug, title: e.target.value })} /></div>
             <div className="form-row mb-12">
-              <div className="form-group fg-1"><label>Severità</label><select value={editBug.severity} onChange={e => setEditBug({ ...editBug, severity: e.target.value as BugSeverity })}>{BUG_SEVERITIES.map(s => <option key={s} value={s}>{SEV_LABEL[s]}</option>)}</select></div>
+              <div className="form-group fg-1"><label>SeveritÃ </label><select value={editBug.severity} onChange={e => setEditBug({ ...editBug, severity: e.target.value as BugSeverity })}>{BUG_SEVERITIES.map(s => <option key={s} value={s}>{SEV_LABEL[s]}</option>)}</select></div>
               <div className="form-group fg-1"><label>Stato</label><select value={editBug.status} onChange={e => setEditBug({ ...editBug, status: e.target.value as BugStatus })}>{BUG_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
             </div>
             <div className="form-group"><label>Descrizione</label><textarea value={editBug.description || ''} onChange={e => setEditBug({ ...editBug, description: e.target.value })} /></div>
@@ -5077,7 +5077,7 @@ function App() {
         </div>
       )}
 
-      {/* ═══ Edit Learning ═══ */}
+      {/* â•â•â• Edit Learning â•â•â• */}
       {editLearn && (
         <div className="edit-overlay" onClick={() => setEditLearn(null)}>
           <div className="edit-modal" onClick={e => e.stopPropagation()}>
@@ -5095,7 +5095,7 @@ function App() {
         </div>
       )}
 
-      {/* ═══ Edit FDHub Repo Modal ═══ */}
+      {/* â•â•â• Edit FDHub Repo Modal â•â•â• */}
       {editingFdhubRepo && (
         <div className="edit-overlay" onClick={() => setEditingFdhubRepo(null)}>
           <div className="edit-modal fdhub-edit-modal" onClick={e => e.stopPropagation()}>
@@ -5104,7 +5104,7 @@ function App() {
             <div className="form-group"><label>Descrizione</label><input value={editingFdhubRepo.description || ''} onChange={e => setEditingFdhubRepo({ ...editingFdhubRepo, description: e.target.value })} /></div>
             <div className="form-group"><label>Progetto</label>
               <select value={editingFdhubRepo.projectId ?? ''} onChange={e => setEditingFdhubRepo({ ...editingFdhubRepo, projectId: e.target.value === '' ? null : Number(e.target.value) })}>
-                <option value="">— Nessuno —</option>
+                <option value="">â€” Nessuno â€”</option>
                 {projects.filter(p => !p.isArchived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
@@ -5121,7 +5121,7 @@ function App() {
         </div>
       )}
 
-      {/* ═══ Command Palette (Ctrl+K) ═══ */}
+      {/* â•â•â• Command Palette (Ctrl+K) â•â•â• */}
       {cmdOpen && (
         <div className="cmd-overlay" onClick={() => setCmdOpen(false)}>
           <div className="cmd-palette" onClick={e => e.stopPropagation()}>
