@@ -1562,19 +1562,19 @@ function shouldCreateRecurrence(task, dateStr) {
 /* ═══════════════════════ Trash (Cestino) ═══════════════════════ */
 
 function getTrashItems() {
-  const tasks = db.prepare(`SELECT ${TASK_COLS}, 'task' AS _entityType, deleted_at AS deletedAt FROM tasks WHERE deleted_at IS NOT NULL`).all();
-  const notes = db.prepare(`SELECT ${NOTE_COLS}, 'note' AS _entityType, deleted_at AS deletedAt FROM notes WHERE deleted_at IS NOT NULL`).all();
-  const changes = db.prepare(`SELECT ${CHANGE_COLS}, 'change' AS _entityType, deleted_at AS deletedAt FROM change_entries WHERE deleted_at IS NOT NULL`).all();
-  const bugs = db.prepare(`SELECT ${BUG_COLS}, 'bug' AS _entityType, deleted_at AS deletedAt FROM bugs WHERE deleted_at IS NOT NULL`).all();
-  const snippets = db.prepare(`SELECT ${SNIPPET_COLS}, 'snippet' AS _entityType, deleted_at AS deletedAt FROM snippets WHERE deleted_at IS NOT NULL`).all();
-  const bookmarks = db.prepare(`SELECT ${BOOKMARK_COLS}, 'bookmark' AS _entityType, deleted_at AS deletedAt FROM bookmarks WHERE deleted_at IS NOT NULL`).all();
-  const contacts = db.prepare(`SELECT ${CONTACT_COLS}, 'contact' AS _entityType, deleted_at AS deletedAt FROM contacts WHERE deleted_at IS NOT NULL`).all();
-  const environments = db.prepare(`SELECT ${ENV_COLS}, 'environment' AS _entityType, deleted_at AS deletedAt FROM environments WHERE deleted_at IS NOT NULL`).all();
-  const goals = db.prepare(`SELECT ${GOAL_COLS}, 'goal' AS _entityType, deleted_at AS deletedAt FROM daily_goals WHERE deleted_at IS NOT NULL`).all();
-  const projects = db.prepare(`SELECT ${PROJECT_COLS}, 'project' AS _entityType, deleted_at AS deletedAt FROM projects WHERE deleted_at IS NOT NULL`).all();
-  const retros = db.prepare(`SELECT ${RETRO_COLS}, 'retrospective' AS _entityType, deleted_at AS deletedAt FROM retrospectives WHERE deleted_at IS NOT NULL`).all();
-  const learning = db.prepare(`SELECT ${LEARNING_COLS}, 'learning' AS _entityType, deleted_at AS deletedAt FROM learning WHERE deleted_at IS NOT NULL`).all();
-  const checklists = db.prepare(`SELECT ${CHECKLIST_COLS}, 'checklist' AS _entityType, deleted_at AS deletedAt FROM checklists WHERE deleted_at IS NOT NULL`).all();
+  const tasks = db.prepare(`SELECT ${TASK_COLS}, 'task' AS entityType, deleted_at AS deletedAt FROM tasks WHERE deleted_at IS NOT NULL`).all();
+  const notes = db.prepare(`SELECT ${NOTE_COLS}, 'note' AS entityType, deleted_at AS deletedAt FROM notes WHERE deleted_at IS NOT NULL`).all();
+  const changes = db.prepare(`SELECT ${CHANGE_COLS}, 'change' AS entityType, deleted_at AS deletedAt FROM change_entries WHERE deleted_at IS NOT NULL`).all();
+  const bugs = db.prepare(`SELECT ${BUG_COLS}, 'bug' AS entityType, deleted_at AS deletedAt FROM bugs WHERE deleted_at IS NOT NULL`).all();
+  const snippets = db.prepare(`SELECT ${SNIPPET_COLS}, 'snippet' AS entityType, deleted_at AS deletedAt FROM snippets WHERE deleted_at IS NOT NULL`).all();
+  const bookmarks = db.prepare(`SELECT ${BOOKMARK_COLS}, 'bookmark' AS entityType, deleted_at AS deletedAt FROM bookmarks WHERE deleted_at IS NOT NULL`).all();
+  const contacts = db.prepare(`SELECT ${CONTACT_COLS}, 'contact' AS entityType, deleted_at AS deletedAt FROM contacts WHERE deleted_at IS NOT NULL`).all();
+  const environments = db.prepare(`SELECT ${ENV_COLS}, 'environment' AS entityType, deleted_at AS deletedAt FROM environments WHERE deleted_at IS NOT NULL`).all();
+  const goals = db.prepare(`SELECT ${GOAL_COLS}, 'goal' AS entityType, deleted_at AS deletedAt FROM daily_goals WHERE deleted_at IS NOT NULL`).all();
+  const projects = db.prepare(`SELECT ${PROJECT_COLS}, 'project' AS entityType, deleted_at AS deletedAt FROM projects WHERE deleted_at IS NOT NULL`).all();
+  const retros = db.prepare(`SELECT ${RETRO_COLS}, 'retrospective' AS entityType, deleted_at AS deletedAt FROM retrospectives WHERE deleted_at IS NOT NULL`).all();
+  const learning = db.prepare(`SELECT ${LEARNING_COLS}, 'learning' AS entityType, deleted_at AS deletedAt FROM learning WHERE deleted_at IS NOT NULL`).all();
+  const checklists = db.prepare(`SELECT ${CHECKLIST_COLS}, 'checklist' AS entityType, deleted_at AS deletedAt FROM checklists WHERE deleted_at IS NOT NULL`).all();
 
   return [...tasks, ...notes, ...changes, ...bugs, ...snippets, ...bookmarks, ...contacts,
           ...environments, ...goals, ...projects, ...retros, ...learning, ...checklists]

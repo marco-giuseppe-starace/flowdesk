@@ -272,8 +272,8 @@ type FlowdeskApi = {
   generateRecurringTasks: (date: string) => Promise<{ generated: number }>;
   /* Trash / Cestino */
   getTrashItems: () => Promise<TrashItem[]>;
-  restoreTrashItem: (entityType: string, id: number) => Promise<{ ok: boolean }>;
-  permanentDeleteTrashItem: (entityType: string, id: number) => Promise<{ ok: boolean }>;
+  restoreTrashItem: (entityType: string, id: number) => Promise<{ ok: boolean; error?: string }>;
+  permanentDeleteTrashItem: (entityType: string, id: number) => Promise<{ ok: boolean; error?: string }>;
   emptyTrash: () => Promise<{ ok: boolean }>;
   /* Full JSON export */
   exportFullJson: () => Promise<{ ok: boolean; path?: string }>;
@@ -1270,8 +1270,30 @@ function App() {
 
   /* ── Trash / Cestino handlers ── */
   async function loadTrash() { if (!api) return; try { const items = await api.getTrashItems(); setTrashItems(items); } catch { showToast('error', 'Errore caricamento cestino'); } }
-  async function restoreTrashItem(entityType: string, id: number) { if (!api) return; try { await api.restoreTrashItem(entityType, id); showToast('success', 'Elemento ripristinato'); await loadTrash(); await refreshAll(); } catch { showToast('error', 'Errore ripristino elemento'); } }
-  async function permanentDeleteTrashItem(entityType: string, id: number) { if (!api) return; if (!confirmDelete('Eliminare definitivamente questo elemento? Questa azione non � reversibile.')) return; try { await api.permanentDeleteTrashItem(entityType, id); showToast('info', 'Elemento eliminato definitivamente'); await loadTrash(); } catch { showToast('error', 'Errore eliminazione definitiva'); } }
+  async function restoreTrashItem(entityType: string, id: number) {
+    if (!api) return;
+    try {
+      const res = await api.restoreTrashItem(entityType, id);
+      if (!res?.ok) { showToast('error', res?.error || 'Errore ripristino elemento'); return; }
+      showToast('success', 'Elemento ripristinato');
+      await loadTrash();
+      await refreshAll();
+    } catch {
+      showToast('error', 'Errore ripristino elemento');
+    }
+  }
+  async function permanentDeleteTrashItem(entityType: string, id: number) {
+    if (!api) return;
+    if (!confirmDelete('Eliminare definitivamente questo elemento? Questa azione non � reversibile.')) return;
+    try {
+      const res = await api.permanentDeleteTrashItem(entityType, id);
+      if (!res?.ok) { showToast('error', res?.error || 'Errore eliminazione definitiva'); return; }
+      showToast('info', 'Elemento eliminato definitivamente');
+      await loadTrash();
+    } catch {
+      showToast('error', 'Errore eliminazione definitiva');
+    }
+  }
   async function emptyTrashAll() { if (!api) return; if (!confirmDelete('Svuotare completamente il cestino? Questa azione non � reversibile.')) return; try { await api.emptyTrash(); showToast('info', 'Cestino svuotato'); setTrashItems([]); } catch { showToast('error', 'Errore svuotamento cestino'); } }
 
   /* ── Drag-and-drop Kanban handlers ── */
