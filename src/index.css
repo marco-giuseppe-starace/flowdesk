@@ -6,5 +6,6 @@
   background: #f1f5f9;
 }
 * { box-sizing: border-box; margin: 0; }
-body { min-width: 320px; }
+html, body, #root { height: 100%; }
+body { min-width: 320px; overflow: hidden; }
 button, input, select, textarea { font: inherit; }
