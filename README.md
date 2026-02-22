@@ -279,11 +279,15 @@ Il timer attivo è sempre visibile nella **sidebar** per un accesso rapido, anch
 
 ### Pomodoro
 
-Timer Pomodoro integrato per gestire il focus:
+La **Tecnica del Pomodoro** è un metodo di gestione del tempo che alterna sessioni di lavoro concentrato a brevi pause, riducendo l'affaticamento mentale e aumentando la produttività. Il nome deriva dal timer da cucina a forma di pomodoro usato dal suo inventore, Francesco Cirillo.
 
-- **Fase di lavoro:** 25 minuti
-- **Pausa:** 5 minuti
-- **Cicli:** il conteggio dei cicli completati viene tracciato
+FlowDesk integra un timer Pomodoro completo:
+
+- **Fase di lavoro:** 25 minuti di focus ininterrotto — durante questa fase ti concentri su un singolo task senza distrazioni
+- **Pausa:** 5 minuti di riposo — il cervello consolida quanto appreso e si ricarica per il ciclo successivo
+- **Cicli:** il conteggio dei cicli completati viene tracciato, così puoi misurare quanti "pomodori" dedichi a ogni attività
+
+**Perché funziona:** lavorare in blocchi di 25 minuti elimina la tentazione del multitasking, crea urgenza positiva e rende il lavoro più sostenibile nel lungo periodo. Dopo 4 cicli è consigliabile una pausa più lunga (15-30 min).
 
 Al termine di ogni fase, ricevi una **notifica nativa del sistema operativo** (tramite le Electron Notification API). Il badge Pomodoro nella sidebar mostra il tempo rimanente anche mentre navighi in altre viste.
 
