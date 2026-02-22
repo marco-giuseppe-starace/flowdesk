@@ -11,7 +11,7 @@
 
 **FlowDesk** è un'applicazione desktop di produttività e tracciamento del lavoro pensata per professionisti che lavorano con la **Microsoft Power Platform** (Power Apps, Power Automate, Power BI, Dataverse, ecc.).
 
-**Versione corrente:** 0.4.2
+**Versione corrente:** 0.5.0
 
 ---
 

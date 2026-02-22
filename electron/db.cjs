@@ -309,16 +309,41 @@ const MIGRATIONS = [
     }
   },
 
-  // ── Aggiungi qui le migrazioni future ──────────────────────────────────
-  // Esempio:
-  // {
-  //   version: 2,
-  //   description: 'Aggiunta tabella XYZ e colonne extra',
-  //   up: (database) => {
-  //     database.exec(`CREATE TABLE IF NOT EXISTS xyz (...)`);
-  //     safeAddColumn(database, 'tasks', 'new_col', "TEXT DEFAULT ''");
-  //   }
-  // },
+  // ── Migration v3: Soft delete, recurring tasks, updated_at, integrity ──
+  {
+    version: 3,
+    description: 'Soft delete, task ricorrenti, updated_at, integrità dati',
+    up: (database) => {
+      // Soft delete: aggiunge deleted_at a tutte le entità principali
+      const softDeleteTables = [
+        'tasks', 'notes', 'daily_goals', 'projects', 'snippets', 'bookmarks',
+        'contacts', 'environments', 'retrospectives', 'bugs', 'learning',
+        'checklists', 'change_entries', 'tags', 'fdhub_repos'
+      ];
+      for (const table of softDeleteTables) {
+        safeAddColumn(database, table, 'deleted_at', 'TEXT DEFAULT NULL');
+      }
+
+      // updated_at: aggiunge timestamp di modifica alle tabelle principali
+      const updatedAtTables = [
+        'tasks', 'notes', 'projects', 'snippets', 'bookmarks',
+        'contacts', 'environments', 'retrospectives', 'bugs', 'learning',
+        'checklists', 'change_entries'
+      ];
+      for (const table of updatedAtTables) {
+        safeAddColumn(database, table, 'updated_at', 'TEXT DEFAULT NULL');
+      }
+
+      // Task ricorrenti: aggiunge colonne per la ricorrenza
+      safeAddColumn(database, 'tasks', 'recurrence', "TEXT DEFAULT NULL"); // 'daily', 'weekly', 'monthly' o null
+      safeAddColumn(database, 'tasks', 'recurrence_parent_id', 'INTEGER DEFAULT NULL');
+
+      // Indici per performance
+      safeCreateIndex(database, 'idx_tasks_deleted', 'tasks', 'deleted_at');
+      safeCreateIndex(database, 'idx_tasks_recurrence', 'tasks', 'recurrence');
+      safeCreateIndex(database, 'idx_tasks_scheduled', 'tasks', 'scheduled_date');
+    }
+  },
 ];
 
 /** Versione corrente (= ultima migrazione disponibile) */
@@ -355,6 +380,7 @@ function initDb(basePath) {
 
   db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
 
   // 1. Crea la tabella schema_version se non esiste
   db.exec(`
@@ -463,15 +489,16 @@ function initDb(basePath) {
 /* ═══════════════════════ Tasks ═══════════════════════ */
 
 const TASK_COLS = `id, title, description, planned_minutes AS plannedMinutes, priority, status,
-  scheduled_date AS scheduledDate, created_at AS createdAt, project_id AS projectId`;
+  scheduled_date AS scheduledDate, created_at AS createdAt, project_id AS projectId,
+  recurrence, recurrence_parent_id AS recurrenceParentId`;
 
 function listTasks(scheduledDate = localDateString(), projectId = null) {
   if (projectId) {
-    return db.prepare(`SELECT ${TASK_COLS} FROM tasks WHERE scheduled_date = ? AND project_id = ?
+    return db.prepare(`SELECT ${TASK_COLS} FROM tasks WHERE scheduled_date = ? AND project_id = ? AND deleted_at IS NULL
       ORDER BY CASE priority WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END, id DESC`)
       .all(scheduledDate, projectId);
   }
-  return db.prepare(`SELECT ${TASK_COLS} FROM tasks WHERE scheduled_date = ?
+  return db.prepare(`SELECT ${TASK_COLS} FROM tasks WHERE scheduled_date = ? AND deleted_at IS NULL
     ORDER BY CASE priority WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END, id DESC`)
     .all(scheduledDate);
 }
@@ -504,6 +531,20 @@ function updateTask(id, p) {
 
 function deleteTask(id) {
   db.prepare('UPDATE change_entries SET task_id = NULL WHERE task_id = ?').run(id);
+  db.prepare('DELETE FROM task_tags WHERE task_id = ?').run(id);
+  db.prepare('DELETE FROM work_sessions WHERE task_id = ?').run(id);
+  db.prepare('UPDATE tasks SET deleted_at = ? WHERE id = ?').run(nowIso(), id);
+  return { ok: true };
+}
+
+function restoreTask(id) {
+  db.prepare('UPDATE tasks SET deleted_at = NULL WHERE id = ?').run(id);
+  return db.prepare(`SELECT ${TASK_COLS} FROM tasks WHERE id = ?`).get(id);
+}
+
+function permanentDeleteTask(id) {
+  db.prepare('UPDATE change_entries SET task_id = NULL WHERE task_id = ?').run(id);
+  db.prepare('DELETE FROM task_tags WHERE task_id = ?').run(id);
   db.prepare('DELETE FROM work_sessions WHERE task_id = ?').run(id);
   db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
   return { ok: true };
@@ -591,7 +632,7 @@ function addChange(p) {
 }
 
 function listChanges(day = localDateString()) {
-  return db.prepare(`SELECT ${CHANGE_COLS} FROM change_entries WHERE work_date = ? ORDER BY id DESC`).all(day);
+  return db.prepare(`SELECT ${CHANGE_COLS} FROM change_entries WHERE work_date = ? AND deleted_at IS NULL ORDER BY id DESC`).all(day);
 }
 
 function updateChange(id, p) {
@@ -611,7 +652,7 @@ function updateChange(id, p) {
 }
 
 function deleteChange(id) {
-  db.prepare('DELETE FROM change_entries WHERE id = ?').run(id);
+  db.prepare('UPDATE change_entries SET deleted_at = ? WHERE id = ?').run(nowIso(), id);
   return { ok: true };
 }
 
@@ -628,7 +669,7 @@ function createNote(p) {
 }
 
 function listNotes(day = localDateString()) {
-  return db.prepare(`SELECT ${NOTE_COLS} FROM notes WHERE work_date = ? ORDER BY pinned DESC, id DESC`).all(day);
+  return db.prepare(`SELECT ${NOTE_COLS} FROM notes WHERE work_date = ? AND deleted_at IS NULL ORDER BY pinned DESC, id DESC`).all(day);
 }
 
 function togglePinNote(id) {
@@ -637,7 +678,7 @@ function togglePinNote(id) {
 }
 
 function deleteNote(id) {
-  db.prepare('DELETE FROM notes WHERE id = ?').run(id);
+  db.prepare('UPDATE notes SET deleted_at = ? WHERE id = ?').run(nowIso(), id);
   return { ok: true };
 }
 
@@ -655,7 +696,7 @@ function createGoal(p) {
 }
 
 function listGoals(day = localDateString()) {
-  return db.prepare(`SELECT ${GOAL_COLS} FROM daily_goals WHERE work_date = ? ORDER BY sort_order ASC`).all(day);
+  return db.prepare(`SELECT ${GOAL_COLS} FROM daily_goals WHERE work_date = ? AND deleted_at IS NULL ORDER BY sort_order ASC`).all(day);
 }
 
 function toggleGoal(id) {
@@ -675,7 +716,7 @@ function updateGoal(id, p) {
 }
 
 function deleteGoal(id) {
-  db.prepare('DELETE FROM daily_goals WHERE id = ?').run(id);
+  db.prepare('UPDATE daily_goals SET deleted_at = ? WHERE id = ?').run(nowIso(), id);
   return { ok: true };
 }
 
@@ -799,8 +840,8 @@ function createProject(p) {
 }
 
 function listProjects(includeArchived = false) {
-  if (includeArchived) return db.prepare(`SELECT ${PROJECT_COLS} FROM projects ORDER BY name`).all();
-  return db.prepare(`SELECT ${PROJECT_COLS} FROM projects WHERE is_archived = 0 ORDER BY name`).all();
+  if (includeArchived) return db.prepare(`SELECT ${PROJECT_COLS} FROM projects WHERE deleted_at IS NULL ORDER BY name`).all();
+  return db.prepare(`SELECT ${PROJECT_COLS} FROM projects WHERE is_archived = 0 AND deleted_at IS NULL ORDER BY name`).all();
 }
 
 function updateProject(id, p) {
@@ -820,8 +861,14 @@ function updateProject(id, p) {
 function deleteProject(id) {
   db.prepare('UPDATE tasks SET project_id = NULL WHERE project_id = ?').run(id);
   db.prepare('UPDATE change_entries SET project_id = NULL WHERE project_id = ?').run(id);
+  db.prepare('UPDATE bugs SET project_id = NULL WHERE project_id = ?').run(id);
+  db.prepare('UPDATE contacts SET project_id = NULL WHERE project_id = ?').run(id);
+  db.prepare('UPDATE environments SET project_id = NULL WHERE project_id = ?').run(id);
+  db.prepare('UPDATE checklists SET project_id = NULL WHERE project_id = ?').run(id);
+  db.prepare('UPDATE bookmarks SET project_id = NULL WHERE project_id = ?').run(id);
+  db.prepare('UPDATE fdhub_repos SET project_id = NULL WHERE project_id = ?').run(id);
   db.prepare('DELETE FROM task_templates WHERE project_id = ?').run(id);
-  db.prepare('DELETE FROM projects WHERE id = ?').run(id);
+  db.prepare('UPDATE projects SET deleted_at = ? WHERE id = ?').run(nowIso(), id);
   return { ok: true };
 }
 
@@ -948,9 +995,9 @@ function createSnippet(p) {
 
 function listSnippets(language = null) {
   if (language) {
-    return db.prepare(`SELECT ${SNIPPET_COLS} FROM snippets WHERE language = ? ORDER BY is_favorite DESC, title`).all(language);
+    return db.prepare(`SELECT ${SNIPPET_COLS} FROM snippets WHERE language = ? AND deleted_at IS NULL ORDER BY is_favorite DESC, title`).all(language);
   }
-  return db.prepare(`SELECT ${SNIPPET_COLS} FROM snippets ORDER BY is_favorite DESC, title`).all();
+  return db.prepare(`SELECT ${SNIPPET_COLS} FROM snippets WHERE deleted_at IS NULL ORDER BY is_favorite DESC, title`).all();
 }
 
 function updateSnippet(id, p) {
@@ -973,7 +1020,7 @@ function toggleSnippetFav(id) {
 }
 
 function deleteSnippet(id) {
-  db.prepare('DELETE FROM snippets WHERE id = ?').run(id);
+  db.prepare('UPDATE snippets SET deleted_at = ? WHERE id = ?').run(nowIso(), id);
   return { ok: true };
 }
 
@@ -990,9 +1037,9 @@ function createBookmark(p) {
 
 function listBookmarks(category = null) {
   if (category) {
-    return db.prepare(`SELECT ${BOOKMARK_COLS} FROM bookmarks WHERE category = ? ORDER BY title`).all(category);
+    return db.prepare(`SELECT ${BOOKMARK_COLS} FROM bookmarks WHERE category = ? AND deleted_at IS NULL ORDER BY title`).all(category);
   }
-  return db.prepare(`SELECT ${BOOKMARK_COLS} FROM bookmarks ORDER BY category, title`).all();
+  return db.prepare(`SELECT ${BOOKMARK_COLS} FROM bookmarks WHERE deleted_at IS NULL ORDER BY category, title`).all();
 }
 
 function updateBookmark(id, p) {
@@ -1008,7 +1055,7 @@ function updateBookmark(id, p) {
 }
 
 function deleteBookmark(id) {
-  db.prepare('DELETE FROM bookmarks WHERE id = ?').run(id);
+  db.prepare('UPDATE bookmarks SET deleted_at = ? WHERE id = ?').run(nowIso(), id);
   return { ok: true };
 }
 
@@ -1016,7 +1063,7 @@ function deleteBookmark(id) {
 
 function getBacklog() {
   const today = localDateString();
-  return db.prepare(`SELECT ${TASK_COLS} FROM tasks WHERE status != 'Done' AND scheduled_date < ?
+  return db.prepare(`SELECT ${TASK_COLS} FROM tasks WHERE status != 'Done' AND scheduled_date < ? AND deleted_at IS NULL
     ORDER BY scheduled_date DESC, CASE priority WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END`).all(today);
 }
 
@@ -1109,8 +1156,8 @@ function createContact(p) {
 }
 
 function listContacts(projectId = null) {
-  if (projectId) return db.prepare(`SELECT ${CONTACT_COLS} FROM contacts WHERE project_id = ? ORDER BY name`).all(projectId);
-  return db.prepare(`SELECT ${CONTACT_COLS} FROM contacts ORDER BY name`).all();
+  if (projectId) return db.prepare(`SELECT ${CONTACT_COLS} FROM contacts WHERE project_id = ? AND deleted_at IS NULL ORDER BY name`).all(projectId);
+  return db.prepare(`SELECT ${CONTACT_COLS} FROM contacts WHERE deleted_at IS NULL ORDER BY name`).all();
 }
 
 function updateContact(id, p) {
@@ -1128,7 +1175,7 @@ function updateContact(id, p) {
 }
 
 function deleteContact(id) {
-  db.prepare('DELETE FROM contacts WHERE id = ?').run(id);
+  db.prepare('UPDATE contacts SET deleted_at = ? WHERE id = ?').run(nowIso(), id);
   return { ok: true };
 }
 
@@ -1144,8 +1191,8 @@ function createEnvironment(p) {
 }
 
 function listEnvironments(projectId = null) {
-  if (projectId) return db.prepare(`SELECT ${ENV_COLS} FROM environments WHERE project_id = ? ORDER BY name`).all(projectId);
-  return db.prepare(`SELECT ${ENV_COLS} FROM environments ORDER BY name`).all();
+  if (projectId) return db.prepare(`SELECT ${ENV_COLS} FROM environments WHERE project_id = ? AND deleted_at IS NULL ORDER BY name`).all(projectId);
+  return db.prepare(`SELECT ${ENV_COLS} FROM environments WHERE deleted_at IS NULL ORDER BY name`).all();
 }
 
 function updateEnvironment(id, p) {
@@ -1162,7 +1209,7 @@ function updateEnvironment(id, p) {
 }
 
 function deleteEnvironment(id) {
-  db.prepare('DELETE FROM environments WHERE id = ?').run(id);
+  db.prepare('UPDATE environments SET deleted_at = ? WHERE id = ?').run(nowIso(), id);
   return { ok: true };
 }
 
@@ -1178,7 +1225,7 @@ function createRetrospective(p) {
 }
 
 function listRetrospectives() {
-  return db.prepare(`SELECT ${RETRO_COLS} FROM retrospectives ORDER BY week_start DESC`).all();
+  return db.prepare(`SELECT ${RETRO_COLS} FROM retrospectives WHERE deleted_at IS NULL ORDER BY week_start DESC`).all();
 }
 
 function updateRetrospective(id, p) {
@@ -1192,7 +1239,7 @@ function updateRetrospective(id, p) {
 }
 
 function deleteRetrospective(id) {
-  db.prepare('DELETE FROM retrospectives WHERE id = ?').run(id);
+  db.prepare('UPDATE retrospectives SET deleted_at = ? WHERE id = ?').run(nowIso(), id);
   return { ok: true };
 }
 
@@ -1210,10 +1257,10 @@ function createBug(p) {
 function listBugs(projectId = null, status = null) {
   let sql = `SELECT ${BUG_COLS} FROM bugs`;
   const params = [];
-  const where = [];
+  const where = ['deleted_at IS NULL'];
   if (projectId) { where.push('project_id = ?'); params.push(projectId); }
   if (status) { where.push('status = ?'); params.push(status); }
-  if (where.length) sql += ' WHERE ' + where.join(' AND ');
+  sql += ' WHERE ' + where.join(' AND ');
   sql += ' ORDER BY CASE severity WHEN \'Critical\' THEN 1 WHEN \'High\' THEN 2 WHEN \'Medium\' THEN 3 ELSE 4 END, id DESC';
   return db.prepare(sql).all(...params);
 }
@@ -1233,7 +1280,7 @@ function updateBug(id, p) {
 }
 
 function deleteBug(id) {
-  db.prepare('DELETE FROM bugs WHERE id = ?').run(id);
+  db.prepare('UPDATE bugs SET deleted_at = ? WHERE id = ?').run(nowIso(), id);
   return { ok: true };
 }
 
@@ -1249,8 +1296,8 @@ function createLearning(p) {
 }
 
 function listLearning(category = null) {
-  if (category) return db.prepare(`SELECT ${LEARNING_COLS} FROM learning WHERE category = ? ORDER BY created_at DESC`).all(category);
-  return db.prepare(`SELECT ${LEARNING_COLS} FROM learning ORDER BY created_at DESC`).all();
+  if (category) return db.prepare(`SELECT ${LEARNING_COLS} FROM learning WHERE category = ? AND deleted_at IS NULL ORDER BY created_at DESC`).all(category);
+  return db.prepare(`SELECT ${LEARNING_COLS} FROM learning WHERE deleted_at IS NULL ORDER BY created_at DESC`).all();
 }
 
 function updateLearning(id, p) {
@@ -1267,7 +1314,7 @@ function updateLearning(id, p) {
 }
 
 function deleteLearning(id) {
-  db.prepare('DELETE FROM learning WHERE id = ?').run(id);
+  db.prepare('UPDATE learning SET deleted_at = ? WHERE id = ?').run(nowIso(), id);
   return { ok: true };
 }
 
@@ -1284,8 +1331,8 @@ function createChecklist(p) {
 }
 
 function listChecklists(projectId = null) {
-  if (projectId) return db.prepare(`SELECT ${CHECKLIST_COLS} FROM checklists WHERE project_id = ? ORDER BY created_at DESC`).all(projectId);
-  return db.prepare(`SELECT ${CHECKLIST_COLS} FROM checklists ORDER BY created_at DESC`).all();
+  if (projectId) return db.prepare(`SELECT ${CHECKLIST_COLS} FROM checklists WHERE project_id = ? AND deleted_at IS NULL ORDER BY created_at DESC`).all(projectId);
+  return db.prepare(`SELECT ${CHECKLIST_COLS} FROM checklists WHERE deleted_at IS NULL ORDER BY created_at DESC`).all();
 }
 
 function updateChecklist(id, p) {
@@ -1300,7 +1347,7 @@ function updateChecklist(id, p) {
 
 function deleteChecklist(id) {
   db.prepare('DELETE FROM checklist_items WHERE checklist_id = ?').run(id);
-  db.prepare('DELETE FROM checklists WHERE id = ?').run(id);
+  db.prepare('UPDATE checklists SET deleted_at = ? WHERE id = ?').run(nowIso(), id);
   return { ok: true };
 }
 
@@ -1443,6 +1490,182 @@ function deleteAttachment(id) {
   return { ok: true };
 }
 
+/* ═══════════════════════ Batch Tag Loading (N+1 fix) ═══════════════════════ */
+
+function getAllTaskTags(taskIds) {
+  if (!taskIds || taskIds.length === 0) return {};
+  const placeholders = taskIds.map(() => '?').join(',');
+  const rows = db.prepare(
+    `SELECT tt.task_id AS taskId, t.id, t.name, t.color
+     FROM task_tags tt JOIN tags t ON t.id = tt.tag_id
+     WHERE tt.task_id IN (${placeholders}) AND t.deleted_at IS NULL
+     ORDER BY t.name`
+  ).all(...taskIds);
+  const map = {};
+  for (const tid of taskIds) map[tid] = [];
+  for (const row of rows) {
+    if (map[row.taskId]) map[row.taskId].push({ id: row.id, name: row.name, color: row.color });
+  }
+  return map;
+}
+
+/* ═══════════════════════ Recurring Tasks ═══════════════════════ */
+
+function generateRecurringTasks(dateStr) {
+  const date = dateStr || localDateString();
+  // Trova task ricorrenti che devono essere generati per la data specificata
+  // Per ogni task con ricorrenza, verifica se esiste già un figlio per quella data
+  const recurring = db.prepare(
+    `SELECT ${TASK_COLS} FROM tasks WHERE recurrence IS NOT NULL AND recurrence != '' AND deleted_at IS NULL AND status != 'Done'`
+  ).all();
+
+  const created = [];
+  for (const task of recurring) {
+    const shouldCreate = shouldCreateRecurrence(task, date);
+    if (!shouldCreate) continue;
+
+    // Verifica che non esista già un task figlio per questa data
+    const exists = db.prepare(
+      'SELECT id FROM tasks WHERE recurrence_parent_id = ? AND scheduled_date = ? AND deleted_at IS NULL'
+    ).get(task.id, date);
+    if (exists) continue;
+
+    const info = db.prepare(
+      `INSERT INTO tasks (title, description, planned_minutes, priority, status, scheduled_date, project_id, recurrence_parent_id, created_at)
+       VALUES (?, ?, ?, ?, 'Todo', ?, ?, ?, ?)`
+    ).run(task.title, task.description || '', task.plannedMinutes, task.priority, date, task.projectId || null, task.id, nowIso());
+    const newTask = db.prepare(`SELECT ${TASK_COLS} FROM tasks WHERE id = ?`).get(info.lastInsertRowid);
+    created.push(newTask);
+  }
+  return created;
+}
+
+function shouldCreateRecurrence(task, dateStr) {
+  const taskDate = new Date(task.scheduledDate + 'T00:00:00');
+  const targetDate = new Date(dateStr + 'T00:00:00');
+  if (targetDate <= taskDate) return false;
+
+  switch (task.recurrence) {
+    case 'daily':
+      return true;
+    case 'weekly': {
+      return taskDate.getDay() === targetDate.getDay();
+    }
+    case 'monthly': {
+      return taskDate.getDate() === targetDate.getDate();
+    }
+    default:
+      return false;
+  }
+}
+
+/* ═══════════════════════ Trash (Cestino) ═══════════════════════ */
+
+function getTrashItems() {
+  const tasks = db.prepare(`SELECT ${TASK_COLS}, 'task' AS _entityType, deleted_at AS deletedAt FROM tasks WHERE deleted_at IS NOT NULL`).all();
+  const notes = db.prepare(`SELECT ${NOTE_COLS}, 'note' AS _entityType, deleted_at AS deletedAt FROM notes WHERE deleted_at IS NOT NULL`).all();
+  const changes = db.prepare(`SELECT ${CHANGE_COLS}, 'change' AS _entityType, deleted_at AS deletedAt FROM change_entries WHERE deleted_at IS NOT NULL`).all();
+  const bugs = db.prepare(`SELECT ${BUG_COLS}, 'bug' AS _entityType, deleted_at AS deletedAt FROM bugs WHERE deleted_at IS NOT NULL`).all();
+  const snippets = db.prepare(`SELECT ${SNIPPET_COLS}, 'snippet' AS _entityType, deleted_at AS deletedAt FROM snippets WHERE deleted_at IS NOT NULL`).all();
+  const bookmarks = db.prepare(`SELECT ${BOOKMARK_COLS}, 'bookmark' AS _entityType, deleted_at AS deletedAt FROM bookmarks WHERE deleted_at IS NOT NULL`).all();
+  const contacts = db.prepare(`SELECT ${CONTACT_COLS}, 'contact' AS _entityType, deleted_at AS deletedAt FROM contacts WHERE deleted_at IS NOT NULL`).all();
+  const environments = db.prepare(`SELECT ${ENV_COLS}, 'environment' AS _entityType, deleted_at AS deletedAt FROM environments WHERE deleted_at IS NOT NULL`).all();
+  const goals = db.prepare(`SELECT ${GOAL_COLS}, 'goal' AS _entityType, deleted_at AS deletedAt FROM daily_goals WHERE deleted_at IS NOT NULL`).all();
+  const projects = db.prepare(`SELECT ${PROJECT_COLS}, 'project' AS _entityType, deleted_at AS deletedAt FROM projects WHERE deleted_at IS NOT NULL`).all();
+  const retros = db.prepare(`SELECT ${RETRO_COLS}, 'retrospective' AS _entityType, deleted_at AS deletedAt FROM retrospectives WHERE deleted_at IS NOT NULL`).all();
+  const learning = db.prepare(`SELECT ${LEARNING_COLS}, 'learning' AS _entityType, deleted_at AS deletedAt FROM learning WHERE deleted_at IS NOT NULL`).all();
+  const checklists = db.prepare(`SELECT ${CHECKLIST_COLS}, 'checklist' AS _entityType, deleted_at AS deletedAt FROM checklists WHERE deleted_at IS NOT NULL`).all();
+
+  return [...tasks, ...notes, ...changes, ...bugs, ...snippets, ...bookmarks, ...contacts,
+          ...environments, ...goals, ...projects, ...retros, ...learning, ...checklists]
+    .sort((a, b) => (b.deletedAt || '').localeCompare(a.deletedAt || ''));
+}
+
+function restoreItem(entityType, id) {
+  const tableMap = {
+    task: 'tasks', note: 'notes', change: 'change_entries', bug: 'bugs',
+    snippet: 'snippets', bookmark: 'bookmarks', contact: 'contacts',
+    environment: 'environments', goal: 'daily_goals', project: 'projects',
+    retrospective: 'retrospectives', learning: 'learning', checklist: 'checklists',
+  };
+  const table = tableMap[entityType];
+  if (!table) return { ok: false, error: 'Tipo entità non valido' };
+  db.prepare(`UPDATE ${table} SET deleted_at = NULL WHERE id = ?`).run(id);
+  return { ok: true };
+}
+
+function permanentDeleteItem(entityType, id) {
+  const tableMap = {
+    task: 'tasks', note: 'notes', change: 'change_entries', bug: 'bugs',
+    snippet: 'snippets', bookmark: 'bookmarks', contact: 'contacts',
+    environment: 'environments', goal: 'daily_goals', project: 'projects',
+    retrospective: 'retrospectives', learning: 'learning', checklist: 'checklists',
+  };
+  const table = tableMap[entityType];
+  if (!table) return { ok: false, error: 'Tipo entità non valido' };
+  if (entityType === 'task') {
+    db.prepare('UPDATE change_entries SET task_id = NULL WHERE task_id = ?').run(id);
+    db.prepare('DELETE FROM task_tags WHERE task_id = ?').run(id);
+    db.prepare('DELETE FROM work_sessions WHERE task_id = ?').run(id);
+  }
+  if (entityType === 'checklist') {
+    db.prepare('DELETE FROM checklist_items WHERE checklist_id = ?').run(id);
+  }
+  db.prepare(`DELETE FROM ${table} WHERE id = ?`).run(id);
+  return { ok: true };
+}
+
+function emptyTrash() {
+  const tables = ['tasks', 'notes', 'change_entries', 'bugs', 'snippets', 'bookmarks',
+                   'contacts', 'environments', 'daily_goals', 'projects', 'retrospectives',
+                   'learning', 'checklists'];
+  // Before deleting, clean up dependencies
+  const deletedTasks = db.prepare('SELECT id FROM tasks WHERE deleted_at IS NOT NULL').all();
+  for (const t of deletedTasks) {
+    db.prepare('UPDATE change_entries SET task_id = NULL WHERE task_id = ?').run(t.id);
+    db.prepare('DELETE FROM task_tags WHERE task_id = ?').run(t.id);
+    db.prepare('DELETE FROM work_sessions WHERE task_id = ?').run(t.id);
+  }
+  const deletedChecklists = db.prepare('SELECT id FROM checklists WHERE deleted_at IS NOT NULL').all();
+  for (const cl of deletedChecklists) {
+    db.prepare('DELETE FROM checklist_items WHERE checklist_id = ?').run(cl.id);
+  }
+  for (const table of tables) {
+    db.prepare(`DELETE FROM ${table} WHERE deleted_at IS NOT NULL`).run();
+  }
+  return { ok: true };
+}
+
+/* ═══════════════════════ Full Export (JSON) ═══════════════════════ */
+
+function exportFullJson() {
+  const data = {
+    exportDate: nowIso(),
+    version: 3,
+    tasks: db.prepare(`SELECT * FROM tasks WHERE deleted_at IS NULL`).all(),
+    workSessions: db.prepare(`SELECT * FROM work_sessions`).all(),
+    changeEntries: db.prepare(`SELECT * FROM change_entries WHERE deleted_at IS NULL`).all(),
+    notes: db.prepare(`SELECT * FROM notes WHERE deleted_at IS NULL`).all(),
+    dailyGoals: db.prepare(`SELECT * FROM daily_goals WHERE deleted_at IS NULL`).all(),
+    projects: db.prepare(`SELECT * FROM projects WHERE deleted_at IS NULL`).all(),
+    tags: db.prepare(`SELECT * FROM tags WHERE deleted_at IS NULL`).all(),
+    taskTags: db.prepare(`SELECT * FROM task_tags`).all(),
+    taskTemplates: db.prepare(`SELECT * FROM task_templates`).all(),
+    snippets: db.prepare(`SELECT * FROM snippets WHERE deleted_at IS NULL`).all(),
+    bookmarks: db.prepare(`SELECT * FROM bookmarks WHERE deleted_at IS NULL`).all(),
+    contacts: db.prepare(`SELECT * FROM contacts WHERE deleted_at IS NULL`).all(),
+    environments: db.prepare(`SELECT * FROM environments WHERE deleted_at IS NULL`).all(),
+    retrospectives: db.prepare(`SELECT * FROM retrospectives WHERE deleted_at IS NULL`).all(),
+    bugs: db.prepare(`SELECT * FROM bugs WHERE deleted_at IS NULL`).all(),
+    learning: db.prepare(`SELECT * FROM learning WHERE deleted_at IS NULL`).all(),
+    checklists: db.prepare(`SELECT * FROM checklists WHERE deleted_at IS NULL`).all(),
+    checklistItems: db.prepare(`SELECT * FROM checklist_items`).all(),
+    fdhubRepos: db.prepare(`SELECT * FROM fdhub_repos WHERE deleted_at IS NULL`).all(),
+    fdhubCommits: db.prepare(`SELECT * FROM fdhub_commits`).all(),
+  };
+  return JSON.stringify(data, null, 2);
+}
+
 /* ═══════════════════════ Reset All Data ═══════════════════════ */
 
 function resetAllData() {
@@ -1476,6 +1699,7 @@ function resetAllData() {
 
 const repo = {
   listTasks, createTask, updateTask, deleteTask, setTaskStatus, duplicateTaskToDate,
+  restoreTask, permanentDeleteTask,
   getActiveSession, startSession, stopSession, listSessions,
   addChange, listChanges, updateChange, deleteChange,
   createNote, listNotes, togglePinNote, deleteNote, updateNote,
@@ -1483,6 +1707,7 @@ const repo = {
   getWeekStats, searchAll, getActiveDays, getDaySummary, exportCsv,
   createProject, listProjects, updateProject, deleteProject, getProjectStats,
   createTag, listTags, updateTag, deleteTag, addTagToTask, removeTagFromTask, getTaskTags,
+  getAllTaskTags,
   createTemplate, listTemplates, deleteTemplate, createTaskFromTemplate,
   createSnippet, listSnippets, updateSnippet, toggleSnippetFav, deleteSnippet,
   createBookmark, listBookmarks, updateBookmark, deleteBookmark,
@@ -1498,6 +1723,9 @@ const repo = {
   createFdhubRepo, listFdhubRepos, updateFdhubRepo, deleteFdhubRepo,
   createFdhubCommit, listFdhubCommits, getFdhubCommit, deleteFdhubCommit, getFdhubRepoStats,
   createAttachment, listAttachments, deleteAttachment,
+  generateRecurringTasks,
+  getTrashItems, restoreItem, permanentDeleteItem, emptyTrash,
+  exportFullJson,
 };
 
 function closeDb() {

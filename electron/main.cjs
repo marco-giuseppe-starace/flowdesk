@@ -591,6 +591,36 @@ function registerIpcHandlers() {
   /* Reset */
   ipcMain.handle('data:resetAll', () => repo.resetAllData());
 
+  /* Batch Tag Loading */
+  ipcMain.handle('tags:getAllForTasks', (_, taskIds) => repo.getAllTaskTags(taskIds));
+
+  /* Recurring Tasks */
+  ipcMain.handle('tasks:generateRecurring', (_, date) => repo.generateRecurringTasks(date));
+
+  /* Trash */
+  ipcMain.handle('trash:list', () => repo.getTrashItems());
+  ipcMain.handle('trash:restore', (_, entityType, id) => repo.restoreItem(entityType, id));
+  ipcMain.handle('trash:permanentDelete', (_, entityType, id) => repo.permanentDeleteItem(entityType, id));
+  ipcMain.handle('trash:empty', () => repo.emptyTrash());
+
+  /* Full JSON Export */
+  ipcMain.handle('export:fullJson', async () => {
+    const win = getWin();
+    const result = await dialog.showSaveDialog(win, {
+      title: 'Esporta tutti i dati (JSON)',
+      defaultPath: path.join(app.getPath('desktop'), `flowdesk-export-${new Date().toISOString().slice(0,10)}.json`),
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (result.canceled || !result.filePath) return { ok: false };
+    try {
+      const json = repo.exportFullJson();
+      fs.writeFileSync(result.filePath, json, 'utf-8');
+      return { ok: true, path: result.filePath };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
   /* Contacts */
   ipcMain.handle('contacts:create', (_, p) => repo.createContact(p));
   ipcMain.handle('contacts:list', (_, projectId) => repo.listContacts(projectId));
@@ -767,6 +797,14 @@ function registerIpcHandlers() {
   });
 
   ipcMain.handle('attachments:open', (_, filePath) => {
+    // Security: validate that the path is within the DB folder or attachments directory
+    const dbFolder = path.dirname(getDbPath());
+    const resolved = path.resolve(filePath);
+    const isInDbFolder = resolved.startsWith(path.resolve(dbFolder));
+    const isInAppData = resolved.startsWith(path.resolve(app.getPath('userData')));
+    if (!isInDbFolder && !isInAppData) {
+      return { ok: false, error: 'Accesso negato: percorso file non valido' };
+    }
     if (fs.existsSync(filePath)) {
       shell.openPath(filePath);
       return { ok: true };

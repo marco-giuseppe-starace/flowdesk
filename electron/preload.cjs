@@ -90,6 +90,21 @@ contextBridge.exposeInMainWorld('flowdesk', {
   /* Reset */
   resetAllData: () => ipcRenderer.invoke('data:resetAll'),
 
+  /* Batch Tag Loading */
+  getAllTaskTags: (taskIds) => ipcRenderer.invoke('tags:getAllForTasks', taskIds),
+
+  /* Recurring Tasks */
+  generateRecurringTasks: (date) => ipcRenderer.invoke('tasks:generateRecurring', date),
+
+  /* Trash */
+  getTrashItems: () => ipcRenderer.invoke('trash:list'),
+  restoreTrashItem: (entityType, id) => ipcRenderer.invoke('trash:restore', entityType, id),
+  permanentDeleteTrashItem: (entityType, id) => ipcRenderer.invoke('trash:permanentDelete', entityType, id),
+  emptyTrash: () => ipcRenderer.invoke('trash:empty'),
+
+  /* Full JSON Export */
+  exportFullJson: () => ipcRenderer.invoke('export:fullJson'),
+
   /* Contacts */
   createContact: (p) => ipcRenderer.invoke('contacts:create', p),
   listContacts: (projectId) => ipcRenderer.invoke('contacts:list', projectId),
