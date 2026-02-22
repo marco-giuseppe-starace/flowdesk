@@ -1,4 +1,4 @@
-import './App.css';
+﻿import './App.css';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
@@ -655,6 +655,7 @@ function App() {
 
   /* ── Attachments cache ── */
   const [attachmentsMap, setAttachmentsMap] = useState<Record<string, Attachment[]>>({});
+  const confirmDelete = useCallback((message: string) => window.confirm(message), []);
 
   const loadAttachments = useCallback(async (entityType: string, entityId: number) => {
     if (!api) return;
@@ -688,6 +689,7 @@ function App() {
                     <span className="attachment-name" title={a.fileName} onClick={() => api?.openAttachment(a.filePath)}>{a.fileName}</span>
                     <span className="attachment-size">{(a.fileSize / 1024).toFixed(0)} KB</span>
                     <button className="btn-icon btn-del btn-xs" onClick={async () => {
+                      if (!confirmDelete('Eliminare questo allegato?')) return;
                       if (!api) return;
                       await api.deleteAttachment(a.id);
                       loadAttachments(entityType, entityId);
@@ -700,7 +702,7 @@ function App() {
         )}
       </div>
     );
-  }, [api, attachmentsMap, loadAttachments]);
+  }, [api, attachmentsMap, confirmDelete, loadAttachments]);
 
   /* ── Pomodoro ── */
   const [pomoActive, setPomoActive] = useState(false);
@@ -762,6 +764,7 @@ function App() {
   const dismissToast = useCallback((id: number) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
+
 
   /* ══════════════════ Data fetching ══════════════════ */
 
@@ -1000,7 +1003,7 @@ function App() {
   }
 
   async function cycleStatus(task: Task) { if (!api) return; try { const next: TaskStatus = task.status === 'Todo' ? 'Doing' : task.status === 'Doing' ? 'Done' : 'Todo'; await api.setTaskStatus(task.id, next); await refreshAll(); } catch { showToast('error', 'Errore aggiornamento stato'); } }
-  async function delTask(id: number) { if (!api) return; try { await api.deleteTask(id); showToast('info', 'Attività spostata nel cestino'); await refreshAll(); } catch { showToast('error', 'Errore eliminazione attività'); } }
+  async function delTask(id: number) { if (!api) return; if (!confirmDelete('Spostare questa attivit� nel cestino?')) return; try { await api.deleteTask(id); showToast('info', 'Attivit� spostata nel cestino'); await refreshAll(); } catch { showToast('error', 'Errore eliminazione attivit�'); } }
   async function dupTask(id: number) { if (!api) return; try { await api.duplicateTask(id, nextDay(today)); showToast('success', 'Attività duplicata per domani'); await refreshAll(); } catch { showToast('error', 'Errore duplicazione attività'); } }
 
   async function startTimer(taskId: number) { if (!api || activeSession) return; try { await api.startSession(taskId); await refreshAll(); } catch { showToast('error', 'Errore avvio timer'); } }
@@ -1016,7 +1019,7 @@ function App() {
       await refreshAll();
     } catch { showToast('error', 'Errore registrazione modifica'); }
   }
-  async function delChange(id: number) { if (!api) return; try { await api.deleteChange(id); showToast('info', 'Modifica eliminata'); await refreshAll(); } catch { showToast('error', 'Errore eliminazione modifica'); } }
+  async function delChange(id: number) { if (!api) return; if (!confirmDelete('Eliminare questa modifica?')) return; try { await api.deleteChange(id); showToast('info', 'Modifica eliminata'); await refreshAll(); } catch { showToast('error', 'Errore eliminazione modifica'); } }
   function startEditChange(c: ChangeEntry) { setEditingChangeId(c.id); setEditChange({ tool: c.tool, artifact: c.artifact, changeType: c.changeType, summary: c.summary, beforeText: c.beforeText, afterText: c.afterText, testResult: c.testResult }); }
   function cancelEditChange() { setEditingChangeId(null); setEditChange({}); }
   async function saveEditChange(id: number) {
@@ -1035,7 +1038,7 @@ function App() {
     } catch { showToast('error', 'Errore creazione appunto'); }
   }
   async function togglePin(id: number) { if (!api) return; try { await api.togglePinNote(id); await refreshAll(); } catch { showToast('error', 'Errore pin appunto'); } }
-  async function delNote(id: number) { if (!api) return; try { await api.deleteNote(id); showToast('info', 'Appunto eliminato'); await refreshAll(); } catch { showToast('error', 'Errore eliminazione appunto'); } }
+  async function delNote(id: number) { if (!api) return; if (!confirmDelete('Eliminare questo appunto?')) return; try { await api.deleteNote(id); showToast('info', 'Appunto eliminato'); await refreshAll(); } catch { showToast('error', 'Errore eliminazione appunto'); } }
 
   async function onCreateGoal(e: FormEvent) {
     e.preventDefault();
@@ -1048,7 +1051,7 @@ function App() {
     } catch { showToast('error', 'Errore creazione obiettivo'); }
   }
   async function toggleGoal(id: number) { if (!api) return; try { await api.toggleGoal(id); await refreshAll(); } catch { showToast('error', 'Errore aggiornamento obiettivo'); } }
-  async function delGoal(id: number) { if (!api) return; try { await api.deleteGoal(id); await refreshAll(); } catch { showToast('error', 'Errore eliminazione obiettivo'); } }
+  async function delGoal(id: number) { if (!api) return; if (!confirmDelete('Eliminare questo obiettivo?')) return; try { await api.deleteGoal(id); await refreshAll(); } catch { showToast('error', 'Errore eliminazione obiettivo'); } }
   function startEditGoal(g: Goal) { setEditingGoalId(g.id); setEditingGoalText(g.text); }
   function cancelEditGoal() { setEditingGoalId(null); setEditingGoalText(''); }
   async function saveEditGoal(id: number) {
@@ -1067,7 +1070,7 @@ function App() {
     try { await api.createProject({ name: projName.trim(), color: projColor, description: projDesc.trim() }); setProjName(''); setProjDesc(''); setProjColor(PROJECT_COLORS[0]); showToast('success', 'Progetto creato'); await refreshAll(); } catch { showToast('error', 'Errore creazione progetto'); }
   }
   async function archiveProject(id: number) { if (!api) return; try { await api.updateProject(id, { isArchived: 1 } as any); if (selectedProjId === id) { setSelectedProjId(null); setProjStats(null); } showToast('info', 'Progetto archiviato'); await refreshAll(); } catch { showToast('error', 'Errore archiviazione progetto'); } }
-  async function delProject(id: number) { if (!api) return; try { await api.deleteProject(id); if (selectedProjId === id) { setSelectedProjId(null); setProjStats(null); } showToast('info', 'Progetto spostato nel cestino'); await refreshAll(); } catch { showToast('error', 'Errore eliminazione progetto'); } }
+  async function delProject(id: number) { if (!api) return; if (!confirmDelete('Spostare questo progetto nel cestino?')) return; try { await api.deleteProject(id); if (selectedProjId === id) { setSelectedProjId(null); setProjStats(null); } showToast('info', 'Progetto spostato nel cestino'); await refreshAll(); } catch { showToast('error', 'Errore eliminazione progetto'); } }
   function startEditProject(p: Project) { setEditingProjId(p.id); setEditProjName(p.name); setEditProjDesc(p.description || ''); setEditProjColor(p.color); }
   function cancelEditProject() { setEditingProjId(null); setEditProjName(''); setEditProjDesc(''); setEditProjColor(''); }
   async function saveEditProject(id: number) {
@@ -1081,7 +1084,7 @@ function App() {
     if (!api || !tagName.trim()) return;
     try { await api.createTag({ name: tagName.trim(), color: tagColor }); setTagName(''); setTagColor(TAG_COLORS[0]); showToast('success', 'Tag creato'); await refreshAll(); } catch { showToast('error', 'Errore creazione tag'); }
   }
-  async function delTag(id: number) { if (!api) return; try { await api.deleteTag(id); showToast('info', 'Tag eliminato'); await refreshAll(); } catch { showToast('error', 'Errore eliminazione tag'); } }
+  async function delTag(id: number) { if (!api) return; if (!confirmDelete('Eliminare questo tag?')) return; try { await api.deleteTag(id); showToast('info', 'Tag eliminato'); await refreshAll(); } catch { showToast('error', 'Errore eliminazione tag'); } }
   function startEditTag(t: Tag) { setEditingTagId(t.id); setEditTagName(t.name); setEditTagColor(t.color); }
   function cancelEditTag() { setEditingTagId(null); setEditTagName(''); setEditTagColor(''); }
   async function saveEditTag(id: number) {
@@ -1089,7 +1092,7 @@ function App() {
     try { await api.updateTag(id, { name: editTagName.trim(), color: editTagColor }); cancelEditTag(); await refreshAll(); } catch { showToast('error', 'Errore salvataggio tag'); }
   }
   async function addTag(taskId: number, tagId: number) { if (!api) return; try { const updated = await api.addTagToTask(taskId, tagId); setTaskTagsMap(m => ({ ...m, [taskId]: updated })); } catch { showToast('error', 'Errore aggiunta tag'); } }
-  async function removeTag(taskId: number, tagId: number) { if (!api) return; try { const updated = await api.removeTagFromTask(taskId, tagId); setTaskTagsMap(m => ({ ...m, [taskId]: updated })); } catch { showToast('error', 'Errore rimozione tag'); } }
+  async function removeTag(taskId: number, tagId: number) { if (!api) return; if (!confirmDelete('Rimuovere questo tag dall\'attivit�?')) return; try { const updated = await api.removeTagFromTask(taskId, tagId); setTaskTagsMap(m => ({ ...m, [taskId]: updated })); } catch { showToast('error', 'Errore rimozione tag'); } }
 
   /* ── Template handlers ── */
   async function onCreateTemplate(e: FormEvent) {
@@ -1097,7 +1100,7 @@ function App() {
     if (!api || !tplTitle.trim()) return;
     try { await api.createTemplate({ title: tplTitle.trim(), description: tplDesc.trim(), plannedMinutes: Math.max(5, tplMin), priority: tplPri, tool: tplTool || undefined, projectId: tplProjId === '' ? null : Number(tplProjId) }); setTplTitle(''); setTplDesc(''); setTplMin(60); setTplPri('Medium'); setTplTool(''); setTplProjId(''); showToast('success', 'Template creato'); await refreshAll(); } catch { showToast('error', 'Errore creazione template'); }
   }
-  async function delTemplate(id: number) { if (!api) return; try { await api.deleteTemplate(id); showToast('info', 'Template eliminato'); await refreshAll(); } catch { showToast('error', 'Errore eliminazione template'); } }
+  async function delTemplate(id: number) { if (!api) return; if (!confirmDelete('Eliminare questo template?')) return; try { await api.deleteTemplate(id); showToast('info', 'Template eliminato'); await refreshAll(); } catch { showToast('error', 'Errore eliminazione template'); } }
   async function useTemplate(tplId: number) { if (!api) return; try { await api.createTaskFromTemplate(tplId, today); showToast('success', 'Attività creata da template'); await refreshAll(); } catch { showToast('error', 'Errore uso template'); } }
 
   /* ── Edit handlers ── */
@@ -1138,7 +1141,7 @@ function App() {
     if (!api || !snipTitle.trim() || !snipCode.trim()) return;
     try { await api.createSnippet({ title: snipTitle.trim(), language: snipLang, code: snipCode.trim(), description: snipDesc.trim() }); setSnipTitle(''); setSnipCode(''); setSnipDesc(''); setSnipLang('PowerFx'); showToast('success', 'Snippet creato'); await refreshAll(); if (snipFilter) void api.listSnippets(snipFilter).then(setSnippets); } catch { showToast('error', 'Errore creazione snippet'); }
   }
-  async function delSnippet(id: number) { if (!api) return; try { await api.deleteSnippet(id); showToast('info', 'Snippet eliminato'); await refreshAll(); if (snipFilter) void api.listSnippets(snipFilter).then(setSnippets); } catch { showToast('error', 'Errore eliminazione snippet'); } }
+  async function delSnippet(id: number) { if (!api) return; if (!confirmDelete('Eliminare questo snippet?')) return; try { await api.deleteSnippet(id); showToast('info', 'Snippet eliminato'); await refreshAll(); if (snipFilter) void api.listSnippets(snipFilter).then(setSnippets); } catch { showToast('error', 'Errore eliminazione snippet'); } }
   async function toggleSnipFav(id: number) { if (!api) return; try { await api.toggleSnippetFav(id); await refreshAll(); if (snipFilter) void api.listSnippets(snipFilter).then(setSnippets); } catch { showToast('error', 'Errore aggiornamento snippet'); } }
   async function copySnippetCode(code: string, id: number) { await navigator.clipboard.writeText(code); setSnipCopied(id); setTimeout(() => setSnipCopied(null), 1500); }
   async function onSaveEditSnippet() {
@@ -1155,7 +1158,7 @@ function App() {
     if (!api || !bmTitle.trim() || !bmUrl.trim()) return;
     try { await api.createBookmark({ title: bmTitle.trim(), url: bmUrl.trim(), category: bmCat, description: bmDesc.trim(), projectId: bmProjId === '' ? null : Number(bmProjId) }); setBmTitle(''); setBmUrl(''); setBmDesc(''); setBmCat('Altro'); setBmProjId(''); showToast('success', 'Link salvato'); await refreshAll(); if (bmFilter) void api.listBookmarks(bmFilter).then(setBookmarks); } catch { showToast('error', 'Errore creazione link'); }
   }
-  async function delBookmark(id: number) { if (!api) return; try { await api.deleteBookmark(id); showToast('info', 'Link eliminato'); await refreshAll(); if (bmFilter) void api.listBookmarks(bmFilter).then(setBookmarks); } catch { showToast('error', 'Errore eliminazione link'); } }
+  async function delBookmark(id: number) { if (!api) return; if (!confirmDelete('Eliminare questo link?')) return; try { await api.deleteBookmark(id); showToast('info', 'Link eliminato'); await refreshAll(); if (bmFilter) void api.listBookmarks(bmFilter).then(setBookmarks); } catch { showToast('error', 'Errore eliminazione link'); } }
   function startEditBookmark(b: Bookmark) { setEditingBookmark({ ...b }); }
   function cancelEditBookmark() { setEditingBookmark(null); }
   async function saveEditBookmark() {
@@ -1172,7 +1175,7 @@ function App() {
     if (!api || !ctName.trim()) return;
     try { await api.createContact({ name: ctName.trim(), role: ctRole.trim(), email: ctEmail.trim(), phone: ctPhone.trim(), company: ctCompany.trim(), notes: ctNotes.trim(), projectId: ctProjId === '' ? null : Number(ctProjId) }); setCtName(''); setCtRole(''); setCtEmail(''); setCtPhone(''); setCtCompany(''); setCtNotes(''); setCtProjId(''); showToast('success', 'Contatto creato'); void api.listContacts().then(setContacts); } catch { showToast('error', 'Errore creazione contatto'); }
   }
-  async function delContact(id: number) { if (!api) return; try { await api.deleteContact(id); showToast('info', 'Contatto eliminato'); void api.listContacts().then(setContacts); } catch { showToast('error', 'Errore eliminazione contatto'); } }
+  async function delContact(id: number) { if (!api) return; if (!confirmDelete('Eliminare questo contatto?')) return; try { await api.deleteContact(id); showToast('info', 'Contatto eliminato'); void api.listContacts().then(setContacts); } catch { showToast('error', 'Errore eliminazione contatto'); } }
   function startEditContact(c: Contact) { setEditingContact({ ...c }); }
   function cancelEditContact() { setEditingContact(null); }
   async function saveEditContact() {
@@ -1186,7 +1189,7 @@ function App() {
     if (!api || !envName.trim()) return;
     try { await api.createEnvironment({ name: envName.trim(), url: envUrl.trim(), envType, status: envStatus, description: envDesc.trim(), projectId: envProjId === '' ? null : Number(envProjId) }); setEnvName(''); setEnvUrl(''); setEnvType('Dev'); setEnvStatus('Attivo'); setEnvDesc(''); setEnvProjId(''); showToast('success', 'Ambiente creato'); void api.listEnvironments().then(setEnvironments); } catch { showToast('error', 'Errore creazione ambiente'); }
   }
-  async function delEnv(id: number) { if (!api) return; try { await api.deleteEnvironment(id); showToast('info', 'Ambiente eliminato'); void api.listEnvironments().then(setEnvironments); } catch { showToast('error', 'Errore eliminazione ambiente'); } }
+  async function delEnv(id: number) { if (!api) return; if (!confirmDelete('Eliminare questo ambiente?')) return; try { await api.deleteEnvironment(id); showToast('info', 'Ambiente eliminato'); void api.listEnvironments().then(setEnvironments); } catch { showToast('error', 'Errore eliminazione ambiente'); } }
   async function updateEnvStatus(id: number, s: EnvStatus) { if (!api) return; try { await api.updateEnvironment(id, { status: s }); void api.listEnvironments().then(setEnvironments); } catch { showToast('error', 'Errore aggiornamento stato'); } }
   function startEditEnv(env: Environment) { setEditingEnv({ ...env }); }
   function cancelEditEnv() { setEditingEnv(null); }
@@ -1210,7 +1213,7 @@ function App() {
     if (!api || !editRetro) return;
     try { await api.updateRetrospective(editRetro.id, { wentWell: editRetro.wentWell, toImprove: editRetro.toImprove, actions: editRetro.actions }); setEditRetro(null); void api.listRetrospectives().then(setRetros); } catch { showToast('error', 'Errore salvataggio retrospettiva'); }
   }
-  async function delRetro(id: number) { if (!api) return; try { await api.deleteRetrospective(id); showToast('info', 'Retrospettiva eliminata'); void api.listRetrospectives().then(setRetros); } catch { showToast('error', 'Errore eliminazione retrospettiva'); } }
+  async function delRetro(id: number) { if (!api) return; if (!confirmDelete('Eliminare questa retrospettiva?')) return; try { await api.deleteRetrospective(id); showToast('info', 'Retrospettiva eliminata'); void api.listRetrospectives().then(setRetros); } catch { showToast('error', 'Errore eliminazione retrospettiva'); } }
 
   /* ── Bugs handlers ── */
   async function onCreateBug(e: FormEvent) {
@@ -1223,7 +1226,7 @@ function App() {
     if (!api || !editBug) return;
     try { await api.updateBug(editBug.id, { title: editBug.title, description: editBug.description, severity: editBug.severity, status: editBug.status, stepsToReproduce: editBug.stepsToReproduce, solution: editBug.solution, projectId: editBug.projectId }); setEditBug(null); void api.listBugs(null, bugFilter || null).then(setBugs); } catch { showToast('error', 'Errore salvataggio bug'); }
   }
-  async function delBug(id: number) { if (!api) return; try { await api.deleteBug(id); showToast('info', 'Bug eliminato'); void api.listBugs(null, bugFilter || null).then(setBugs); } catch { showToast('error', 'Errore eliminazione bug'); } }
+  async function delBug(id: number) { if (!api) return; if (!confirmDelete('Eliminare questo bug?')) return; try { await api.deleteBug(id); showToast('info', 'Bug eliminato'); void api.listBugs(null, bugFilter || null).then(setBugs); } catch { showToast('error', 'Errore eliminazione bug'); } }
 
   /* ── Learning handlers ── */
   async function onCreateLearn(e: FormEvent) {
@@ -1236,7 +1239,7 @@ function App() {
     if (!api || !editLearn) return;
     try { await api.updateLearning(editLearn.id, { title: editLearn.title, category: editLearn.category, url: editLearn.url, notes: editLearn.notes, progress: editLearn.progress, completed: editLearn.progress >= 100 ? 1 : 0 }); setEditLearn(null); void api.listLearning(learnFilter || null).then(setLearningList); } catch { showToast('error', 'Errore salvataggio formazione'); }
   }
-  async function delLearn(id: number) { if (!api) return; try { await api.deleteLearning(id); showToast('info', 'Formazione eliminata'); void api.listLearning(learnFilter || null).then(setLearningList); } catch { showToast('error', 'Errore eliminazione formazione'); } }
+  async function delLearn(id: number) { if (!api) return; if (!confirmDelete('Eliminare questo elemento di formazione?')) return; try { await api.deleteLearning(id); showToast('info', 'Formazione eliminata'); void api.listLearning(learnFilter || null).then(setLearningList); } catch { showToast('error', 'Errore eliminazione formazione'); } }
 
   /* ── Checklists handlers ── */
   async function onCreateChecklist(e: FormEvent) {
@@ -1244,14 +1247,14 @@ function App() {
     if (!api || !clTitle.trim()) return;
     try { await api.createChecklist({ title: clTitle.trim(), description: clDesc.trim(), projectId: clProjId === '' ? null : Number(clProjId) }); setClTitle(''); setClDesc(''); setClProjId(''); showToast('success', 'Checklist creata'); void api.listChecklists().then(setChecklists); } catch { showToast('error', 'Errore creazione checklist'); }
   }
-  async function delChecklist(id: number) { if (!api) return; try { await api.deleteChecklist(id); if (selectedCl === id) { setSelectedCl(null); setClItems([]); } showToast('info', 'Checklist eliminata'); void api.listChecklists().then(setChecklists); } catch { showToast('error', 'Errore eliminazione checklist'); } }
+  async function delChecklist(id: number) { if (!api) return; if (!confirmDelete('Eliminare questa checklist?')) return; try { await api.deleteChecklist(id); if (selectedCl === id) { setSelectedCl(null); setClItems([]); } showToast('info', 'Checklist eliminata'); void api.listChecklists().then(setChecklists); } catch { showToast('error', 'Errore eliminazione checklist'); } }
   async function onAddClItem(e: FormEvent) {
     e.preventDefault();
     if (!api || !selectedCl || !clNewItem.trim()) return;
     try { await api.addChecklistItem({ checklistId: selectedCl, text: clNewItem.trim() }); setClNewItem(''); void api.getChecklistItems(selectedCl).then(setClItems); } catch { showToast('error', 'Errore aggiunta elemento'); }
   }
   async function toggleClItem(id: number) { if (!api || !selectedCl) return; try { await api.toggleChecklistItem(id); void api.getChecklistItems(selectedCl).then(setClItems); } catch { showToast('error', 'Errore aggiornamento elemento'); } }
-  async function delClItem(id: number) { if (!api || !selectedCl) return; try { await api.deleteChecklistItem(id); void api.getChecklistItems(selectedCl).then(setClItems); } catch { showToast('error', 'Errore eliminazione elemento'); } }
+  async function delClItem(id: number) { if (!api || !selectedCl) return; if (!confirmDelete('Eliminare questo elemento della checklist?')) return; try { await api.deleteChecklistItem(id); void api.getChecklistItems(selectedCl).then(setClItems); } catch { showToast('error', 'Errore eliminazione elemento'); } }
   function startEditCl(cl: Checklist) { setEditingCl({ ...cl }); }
   function cancelEditCl() { setEditingCl(null); }
   async function saveEditCl() {
@@ -1268,8 +1271,8 @@ function App() {
   /* ── Trash / Cestino handlers ── */
   async function loadTrash() { if (!api) return; try { const items = await api.getTrashItems(); setTrashItems(items); } catch { showToast('error', 'Errore caricamento cestino'); } }
   async function restoreTrashItem(entityType: string, id: number) { if (!api) return; try { await api.restoreTrashItem(entityType, id); showToast('success', 'Elemento ripristinato'); await loadTrash(); await refreshAll(); } catch { showToast('error', 'Errore ripristino elemento'); } }
-  async function permanentDeleteTrashItem(entityType: string, id: number) { if (!api) return; try { await api.permanentDeleteTrashItem(entityType, id); showToast('info', 'Elemento eliminato definitivamente'); await loadTrash(); } catch { showToast('error', 'Errore eliminazione definitiva'); } }
-  async function emptyTrashAll() { if (!api) return; try { await api.emptyTrash(); showToast('info', 'Cestino svuotato'); setTrashItems([]); } catch { showToast('error', 'Errore svuotamento cestino'); } }
+  async function permanentDeleteTrashItem(entityType: string, id: number) { if (!api) return; if (!confirmDelete('Eliminare definitivamente questo elemento? Questa azione non � reversibile.')) return; try { await api.permanentDeleteTrashItem(entityType, id); showToast('info', 'Elemento eliminato definitivamente'); await loadTrash(); } catch { showToast('error', 'Errore eliminazione definitiva'); } }
+  async function emptyTrashAll() { if (!api) return; if (!confirmDelete('Svuotare completamente il cestino? Questa azione non � reversibile.')) return; try { await api.emptyTrash(); showToast('info', 'Cestino svuotato'); setTrashItems([]); } catch { showToast('error', 'Errore svuotamento cestino'); } }
 
   /* ── Drag-and-drop Kanban handlers ── */
   function onDragStartTask(e: React.DragEvent, taskId: number) {
@@ -5260,3 +5263,5 @@ function App() {
 }
 
 export default App;
+
+
