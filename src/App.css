@@ -556,6 +556,7 @@ textarea.small { min-height: 48px; }
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
+  align-items: stretch;
 }
 .cal-day-head {
   text-align: center;
@@ -565,7 +566,7 @@ textarea.small { min-height: 48px; }
   padding: 8px 0;
 }
 .cal-cell {
-  aspect-ratio: 1;
+  height: clamp(46px, 7.2vw, 74px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -581,6 +582,7 @@ textarea.small { min-height: 48px; }
 .cal-cell.has-data:hover { background: #bfdbfe; }
 .cal-cell.today { box-shadow: inset 0 0 0 2px var(--primary); }
 .cal-cell.selected { background: var(--primary); color: #fff !important; }
+.history-calendar-card { overflow: hidden; }
 
 .hist-kpis { display: flex; gap: 16px; flex-wrap: wrap; margin: 12px 0 16px; }
 .hist-kpi { font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
@@ -1291,6 +1293,19 @@ html.dark .report-goal-item.done { background: #14532d33; }
 .full-w { grid-column: 1 / -1; }
 .view-actions { display: flex; gap: 8px; align-items: center; }
 .view-actions select { font-size: 13px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); }
+
+/* App Impact */
+.impact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.impact-card h3 { margin: 0 0 8px; font-size: 15px; }
+.impact-card p { margin: 0 0 8px; line-height: 1.5; }
+.impact-card .btn-link { margin-top: 2px; }
+@media (max-width: 980px) {
+  .impact-grid { grid-template-columns: 1fr; }
+}
 
 /* ——— Stats section in dashboard ——— */
 .stats-section { border-top: 1px solid var(--border); padding-top: 24px; }

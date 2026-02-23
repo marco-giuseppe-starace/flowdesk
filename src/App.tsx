@@ -17,7 +17,7 @@ type EnvStatus = 'Attivo' | 'Inattivo' | 'Manutenzione';
 type BugSeverity = 'Critical' | 'High' | 'Medium' | 'Low';
 type BugStatus = 'Aperto' | 'In corso' | 'Risolto' | 'Chiuso';
 type LearningCategory = 'Corso' | 'Certificazione' | 'Articolo' | 'Video' | 'Libro' | 'Altro';
-type ViewName = 'dashboard' | 'tasks' | 'timer' | 'changes' | 'notes' | 'goals' | 'projects' | 'search' | 'history' | 'report' | 'snippets' | 'bookmarks' | 'backlog' | 'guide' | 'contacts' | 'environments' | 'retros' | 'bugs' | 'learning' | 'checklists' | 'analyzer' | 'fdhub' | 'sharepoint' | 'updates' | 'trash';
+type ViewName = 'dashboard' | 'tasks' | 'timer' | 'changes' | 'notes' | 'goals' | 'projects' | 'search' | 'history' | 'report' | 'snippets' | 'bookmarks' | 'backlog' | 'guide' | 'contacts' | 'environments' | 'retros' | 'bugs' | 'learning' | 'checklists' | 'appimpact' | 'analyzer' | 'fdhub' | 'sharepoint' | 'updates' | 'trash';
 type RecurrenceType = 'daily' | 'weekly' | 'monthly';
 type TrashItem = { id: number; entityType: string; title: string; deletedAt: string };
 type ToastType = 'success' | 'error' | 'info';
@@ -319,6 +319,7 @@ const NAV: { id: ViewName; icon: string; label: string }[] = [
   { id: 'bookmarks', icon: 'bookmark', label: 'Link utili' },
   { id: 'learning', icon: 'school', label: 'Formazione' },
   // ── Analisi ──
+  { id: 'appimpact', icon: 'insights', label: 'App Impact' },
   { id: 'analyzer', icon: 'analytics', label: 'App Analyzer' },
   { id: 'fdhub', icon: 'hub', label: 'FDHub' },
   { id: 'sharepoint', icon: 'share', label: 'SharePoint' },
@@ -1414,13 +1415,6 @@ function App() {
           <h1>FlowDesk</h1>
           <span>Power Platform Tracker</span>
         </div>
-        <nav className="sidebar-nav">
-          {NAV.map(n => (
-            <button key={n.id} className={`nav-item${view === n.id ? ' active' : ''}`} onClick={() => setView(n.id)}>
-              <span className="nav-icon material-symbols-outlined">{n.icon}</span>{n.label}
-            </button>
-          ))}
-        </nav>
         {activeSession && (
           <div className="sidebar-timer" onClick={() => setView('timer')}>
             <span className="pulse-dot" />
@@ -1439,6 +1433,13 @@ function App() {
             </div>
           </div>
         )}
+        <nav className="sidebar-nav">
+          {NAV.map(n => (
+            <button key={n.id} className={`nav-item${view === n.id ? ' active' : ''}`} onClick={() => setView(n.id)}>
+              <span className="nav-icon material-symbols-outlined">{n.icon}</span>{n.label}
+            </button>
+          ))}
+        </nav>
         <button className="dark-toggle" onClick={() => setDarkMode(d => !d)} title={darkMode ? 'Modalità chiara' : 'Modalità scura'}>
           {darkMode ? mi('light_mode') : mi('dark_mode')} {darkMode ? 'Chiaro' : 'Scuro'}
         </button>
@@ -2190,7 +2191,7 @@ function App() {
 
               <div className="grid-2 align-start">
                 {/* Calendar */}
-                <div className="card">
+                <div className="card history-calendar-card">
                   <div className="cal-grid">
                     {WEEKDAY_SHORT.map(d => <div key={d} className="cal-day-head">{d}</div>)}
                     {(() => {
@@ -2808,6 +2809,153 @@ function App() {
                   })()}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ═══════ APP IMPACT ═══════ */}
+          {view === 'appimpact' && (
+            <div className="view">
+              <div className="view-header">
+                <div><h2 className="view-title">App Impact</h2><p className="view-sub">Command center per impatto, rischio e readiness della tua Canvas App</p></div>
+                <div className="view-actions">
+                  {msappData && <button className="btn-secondary" onClick={() => setView('analyzer')}>{mi('analytics')} Apri App Analyzer</button>}
+                  {msappData && <button className="btn-secondary" onClick={() => { setMsappTab('diff'); setView('analyzer'); }}>{mi('compare')} Diff intelligente</button>}
+                  {msappData && <button className="btn-secondary" onClick={async () => {
+                    if (!api || !msappData) return;
+                    await api.analyzerExportPdf(msappData);
+                  }}>{mi('picture_as_pdf')} Doc tecnica</button>}
+                  <button className="btn-primary" onClick={async () => {
+                    if (!api) return;
+                    setMsappLoading(true);
+                    try {
+                      const res = await api.msappOpenFile();
+                      if (res) { setMsappData(res); setMsappTab('overview'); setMsappDiffData(null); setMsappSecond(null); }
+                    } finally { setMsappLoading(false); }
+                  }}>{mi('upload_file')} Importa .msapp</button>
+                </div>
+              </div>
+
+              {msappLoading && <div className="card mb-20 ta-c"><p className="muted">{mi('hourglass_empty')} Analisi in corso...</p></div>}
+
+              {!msappData && !msappLoading && (
+                <div className="card">
+                  <h3 className="mb-12">App Impact Blueprint</h3>
+                  <p className="muted mb-12">Carica un file <code>.msapp</code> per attivare i 10 moduli: Impact Map, Delegation Guardian, Performance Autopilot, Security Scanner, ALM Readiness, Auto-Documentation, Diff intelligente, Fix Pack, Knowledge Graph e Pre-Production Gate.</p>
+                  <p className="muted">Dopo l'import vedrai subito KPI, rischi prioritari e azioni operative.</p>
+                </div>
+              )}
+
+              {msappData && !msappLoading && (() => {
+                const d = msappData;
+                const s = d.summary;
+                const issueTotal = s.issueCount || d.issues.length || 0;
+                const critical = s.criticalIssues || d.issues.filter(i => i.severity === 'critical').length;
+                const high = s.highIssues || d.issues.filter(i => i.severity === 'high').length;
+                const medium = s.mediumIssues || d.issues.filter(i => i.severity === 'medium').length;
+                const low = s.lowIssues || d.issues.filter(i => i.severity === 'low').length;
+                const delegationIssues = d.issues.filter(i => i.category.toLowerCase().includes('deleg') || i.title.toLowerCase().includes('deleg')).length;
+                const performanceIssues = d.issues.filter(i => i.category.toLowerCase().includes('perform') || i.title.toLowerCase().includes('onstart') || i.title.toLowerCase().includes('onvisible')).length;
+                const securityIssues = d.issues.filter(i => i.category.toLowerCase().includes('security') || i.title.toLowerCase().includes('secret') || i.title.toLowerCase().includes('token')).length;
+                const onStartVisibleCount = d.formulas.filter(f => f.property === 'OnStart' || f.property === 'OnVisible').length;
+                const riskyRecordLossEst = delegationIssues * 500;
+                const almScore = Math.round((((d.healthScore?.scores.architecture || 0) + (d.healthScore?.scores.maintainability || 0) + (d.healthScore?.scores.security || 0) + (d.healthScore?.scores.delegation || 0)) / 4) || 0);
+                const topDeps = [...(d.dependencyMatrix || [])].sort((a, b) => b.dataSources.length - a.dataSources.length).slice(0, 3);
+                const topIssueCats = Object.entries(d.issues.reduce<Record<string, number>>((acc, it) => { acc[it.category] = (acc[it.category] || 0) + 1; return acc; }, {}))
+                  .sort((a, b) => b[1] - a[1]).slice(0, 4);
+                const readyForGate = critical === 0 && high <= 2 && (d.healthScore?.overall || 0) >= 75;
+
+                return (
+                  <>
+                    <div className="kpi-row kpi-5">
+                      <div className="kpi-card"><div className="kpi-icon ki-time">{mi('monitoring')}</div><div><span className="kpi-value">{d.healthScore?.overall ?? 0}</span><span className="kpi-label">Health Score</span></div></div>
+                      <div className="kpi-card"><div className="kpi-icon ki-changes">{mi('warning')}</div><div><span className="kpi-value">{issueTotal}</span><span className="kpi-label">Issue totali</span></div></div>
+                      <div className="kpi-card"><div className="kpi-icon ki-goals">{mi('dns')}</div><div><span className="kpi-value">{s.dataSourceCount}</span><span className="kpi-label">Data source</span></div></div>
+                      <div className="kpi-card"><div className="kpi-icon ki-tasks">{mi('functions')}</div><div><span className="kpi-value">{s.totalFormulas}</span><span className="kpi-label">Formule</span></div></div>
+                      <div className="kpi-card"><div className="kpi-icon ki-streak">{mi('account_tree')}</div><div><span className="kpi-value">{s.navigationCount}</span><span className="kpi-label">Navigazioni</span></div></div>
+                    </div>
+
+                    <div className="impact-grid">
+                      <div className="card impact-card">
+                        <h3>1) Impact Map</h3>
+                        <p className="muted">Screen → Control → Formula → DataSource → Flow con blast radius per cambiamenti.</p>
+                        <div className="az-tag-list">
+                          <span className="badge">{s.screenCount} screen</span>
+                          <span className="badge">{s.totalControls} control</span>
+                          <span className="badge">{s.totalFormulas} formule</span>
+                          <span className="badge">{s.dataSourceCount} datasource</span>
+                          <span className="badge">{s.flowCallCount} flow</span>
+                        </div>
+                        {topDeps.length > 0 && <p className="muted mt-8">Punti fragili: {topDeps.map(t => `${t.screen} (${t.dataSources.length})`).join(', ')}</p>}
+                        <button className="btn-link" onClick={() => { setMsappTab('dependencies'); setView('analyzer'); }}>{mi('open_in_new')} Apri mappa dipendenze</button>
+                      </div>
+
+                      <div className="card impact-card">
+                        <h3>2) Delegation Guardian</h3>
+                        <p className="muted">Trova non delegabili, propone rewrite e stima rischio perdita record.</p>
+                        <p><strong>{delegationIssues}</strong> issue delegazione · Stima rischio: <strong>~{riskyRecordLossEst.toLocaleString('it-IT')} record</strong></p>
+                        <button className="btn-link" onClick={() => { setMsappTab('issues'); setView('analyzer'); }}>{mi('open_in_new')} Vedi problemi delegazione</button>
+                      </div>
+
+                      <div className="card impact-card">
+                        <h3>3) Performance Autopilot</h3>
+                        <p className="muted">Bottleneck su OnStart/OnVisible, formule complesse e schermate pesanti.</p>
+                        <p><strong>{performanceIssues}</strong> issue performance · <strong>{onStartVisibleCount}</strong> formule OnStart/OnVisible</p>
+                        <button className="btn-link" onClick={() => { setMsappTab('health'); setView('analyzer'); }}>{mi('open_in_new')} Apri health/performance</button>
+                      </div>
+
+                      <div className="card impact-card">
+                        <h3>4) Security & Compliance Scanner</h3>
+                        <p className="muted">Rilevamento segreti hardcoded, URL sensibili e connettori rischiosi.</p>
+                        <p><strong>{securityIssues}</strong> issue sicurezza · Critici <strong>{critical}</strong> · Alti <strong>{high}</strong></p>
+                        <button className="btn-link" onClick={() => { setMsappTab('issues'); setView('analyzer'); }}>{mi('open_in_new')} Apri remediation</button>
+                      </div>
+
+                      <div className="card impact-card">
+                        <h3>5) ALM Readiness Score</h3>
+                        <p className="muted">Prontezza Dev/Test/Prod su naming, governance, architettura e qualità.</p>
+                        <p>ALM score: <strong>{almScore}/100</strong> · Grade app: <strong>{d.healthScore?.grade || 'N/A'}</strong></p>
+                        <button className="btn-link" onClick={() => { setMsappTab('health'); setView('analyzer'); }}>{mi('open_in_new')} Vedi piano miglioramento</button>
+                      </div>
+
+                      <div className="card impact-card">
+                        <h3>6) Auto-Documentation</h3>
+                        <p className="muted">Documentazione tecnica aggiornata, flussi e handover pack.</p>
+                        <p>Genera PDF pronto per team, cliente o audit.</p>
+                        <button className="btn-link" onClick={async () => { if (!api || !msappData) return; await api.analyzerExportPdf(msappData); }}>{mi('picture_as_pdf')} Genera documentazione</button>
+                      </div>
+
+                      <div className="card impact-card">
+                        <h3>7) Diff intelligente</h3>
+                        <p className="muted">Confronto reale tra due versioni: cambi ad alto rischio e regression checklist.</p>
+                        <p>Confronto strutturale su formule, operazioni dati e schermate.</p>
+                        <button className="btn-link" onClick={() => { setMsappTab('diff'); setView('analyzer'); }}>{mi('compare')} Apri confronto versioni</button>
+                      </div>
+
+                      <div className="card impact-card">
+                        <h3>8) Fix Pack assistito</h3>
+                        <p className="muted">Piano patch ordinato con approvazione manuale (human-in-the-loop).</p>
+                        <p>Priorità: Critici {critical} · Alti {high} · Medi {medium} · Bassi {low}</p>
+                        <button className="btn-link" onClick={() => { setMsappTab('issues'); setView('analyzer'); }}>{mi('assignment')} Apri piano fix</button>
+                      </div>
+
+                      <div className="card impact-card">
+                        <h3>9) Knowledge Graph di team</h3>
+                        <p className="muted">Pattern ricorrenti ed errori frequenti per creare memoria tecnica aziendale.</p>
+                        {topIssueCats.length > 0 ? <p>Pattern attuali: {topIssueCats.map(([cat, count]) => `${cat} (${count})`).join(' · ')}</p> : <p>Nessun pattern disponibile.</p>}
+                        <button className="btn-link" onClick={() => setView('fdhub')}>{mi('hub')} Collega a FDHub</button>
+                      </div>
+
+                      <div className="card impact-card">
+                        <h3>10) Pre-Production Gate</h3>
+                        <p className="muted">Quality gate prima del rilascio con blocco automatico se ci sono critical.</p>
+                        <p>Gate status: <strong>{readyForGate ? 'PASS' : 'BLOCKED'}</strong></p>
+                        {!readyForGate && <p className="muted">Richiesto: critical = 0, high ≤ 2, score ≥ 75</p>}
+                        <button className="btn-link" onClick={() => { setMsappTab('health'); setView('analyzer'); }}>{mi('open_in_new')} Apri report executive</button>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )}
 

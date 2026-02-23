@@ -169,24 +169,22 @@ function detectOneDriveFolders() {
     path.join(home, 'OneDrive'),
     path.join(home, 'OneDrive - Personal'),
   ];
+  // Percorsi da variabili ambiente (evita chiamate shell/registro che possono
+  // essere segnalate dagli endpoint security tools).
+  const envCandidates = [
+    process.env.OneDrive,
+    process.env.OneDriveCommercial,
+    process.env.OneDriveConsumer,
+  ].filter(Boolean);
+  for (const p of envCandidates) {
+    if (!candidates.includes(p)) candidates.push(p);
+  }
   // Cerca anche cartelle OneDrive aziendali (OneDrive - <NomeAzienda>)
   try {
     const entries = fs.readdirSync(home, { withFileTypes: true });
     for (const e of entries) {
       if (e.isDirectory() && e.name.startsWith('OneDrive')) {
         candidates.push(path.join(home, e.name));
-      }
-    }
-  } catch (_) {}
-  // Controlla anche il registro per localizzazioni personalizzate
-  try {
-    const { execSync } = require('node:child_process');
-    const regOut = execSync('reg query "HKCU\\Software\\Microsoft\\OneDrive\\Accounts" /s /v "UserFolder" 2>nul', { encoding: 'utf-8' });
-    const matches = regOut.match(/UserFolder\s+REG_SZ\s+(.+)/gi);
-    if (matches) {
-      for (const m of matches) {
-        const p = m.replace(/^.*REG_SZ\s+/i, '').trim();
-        if (p && !candidates.includes(p)) candidates.push(p);
       }
     }
   } catch (_) {}
