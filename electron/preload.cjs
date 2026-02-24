@@ -176,6 +176,7 @@ contextBridge.exposeInMainWorld('flowdesk', {
   /* Database management */
   getDbPath: () => ipcRenderer.invoke('db:getPath'),
   getDbFolder: () => ipcRenderer.invoke('db:getFolder'),
+  dbExistedAtStartup: () => ipcRenderer.invoke('db:existedAtStartup'),
   changeDbFolder: () => ipcRenderer.invoke('db:changeFolder'),
   migrateToOneDrive: () => ipcRenderer.invoke('db:migrateOneDrive'),
   exportDb: () => ipcRenderer.invoke('db:export'),
@@ -213,7 +214,10 @@ contextBridge.exposeInMainWorld('flowdesk', {
   spCreateFolder: (siteId, driveId, folderId, folderName) => ipcRenderer.invoke('sp:createFolder', siteId, driveId, folderId, folderName),
 
   /* Update checker */
+  getUpdateState: () => ipcRenderer.invoke('app:getUpdateState'),
   checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
+  downloadUpdate: () => ipcRenderer.invoke('app:downloadUpdate'),
+  quitAndInstallUpdate: () => ipcRenderer.invoke('app:quitAndInstallUpdate'),
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
   openInAppBrowser: (url, title) => ipcRenderer.invoke('app:openInAppBrowser', url, title),
   hubOpenTab: (url, title) => ipcRenderer.invoke('app:hubOpenTab', url, title),
@@ -225,6 +229,7 @@ contextBridge.exposeInMainWorld('flowdesk', {
   /* Menu events */
   onNavigate: (cb) => ipcRenderer.on('navigate', (_e, view) => cb(view)),
   onHubTabsChanged: (cb) => ipcRenderer.on('hub:tabsChanged', (_e, payload) => cb(payload)),
+  onUpdateStatus: (cb) => ipcRenderer.on('app:update-status', (_e, payload) => cb(payload)),
   onToggleDark: (cb) => ipcRenderer.on('toggle-dark', () => cb()),
   onOpenCmdPalette: (cb) => ipcRenderer.on('open-cmd-palette', () => cb()),
 });

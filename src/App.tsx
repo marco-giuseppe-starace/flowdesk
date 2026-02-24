@@ -34,6 +34,11 @@ type UpdateInfo = {
   body?: string;
   error?: string;
   message?: string;
+  autoUpdateSupported?: boolean;
+  phase?: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error' | 'unsupported';
+  downloading?: boolean;
+  downloaded?: boolean;
+  progress?: number;
 };
 
 type Task = { id: number; title: string; description: string; plannedMinutes: number; priority: Priority; status: TaskStatus; scheduledDate: string; createdAt: string; projectId?: number | null; recurrence?: RecurrenceType | null; recurrenceParentId?: number | null };
@@ -266,7 +271,10 @@ type FlowdeskApi = {
   spDeleteItem: (siteId: string, driveId: string, itemId: string) => Promise<{ ok: boolean }>;
   spCreateFolder: (siteId: string, driveId: string, folderId: string | undefined, folderName: string) => Promise<{ ok: boolean; id?: string; name?: string }>;
   /* Update checker */
+  getUpdateState: () => Promise<UpdateInfo>;
   checkForUpdates: () => Promise<UpdateInfo>;
+  downloadUpdate: () => Promise<{ ok: boolean; error?: string }>;
+  quitAndInstallUpdate: () => Promise<{ ok: boolean; error?: string }>;
   openExternal: (url: string) => Promise<void>;
   openInAppBrowser: (url: string, title?: string) => Promise<{ ok: boolean; error?: string }>;
   hubOpenTab: (url: string, title?: string) => Promise<{ ok: boolean; tabId?: string; error?: string }>;
@@ -274,6 +282,7 @@ type FlowdeskApi = {
   hubCloseTab: (tabId: string) => Promise<{ ok: boolean; error?: string }>;
   hubListTabs: () => Promise<{ tabs: HubTab[]; activeTabId: string | null }>;
   hubFocusWindow: () => Promise<{ ok: boolean }>;
+  dbExistedAtStartup: () => Promise<boolean>;
   /* Batch tags */
   getAllTaskTags: (taskIds: number[]) => Promise<Record<number, Tag[]>>;
   /* Recurring tasks */
@@ -286,6 +295,7 @@ type FlowdeskApi = {
   /* Full JSON export */
   exportFullJson: () => Promise<{ ok: boolean; path?: string }>;
   onHubTabsChanged: (cb: (payload: { tabs: HubTab[]; activeTabId: string | null }) => void) => void;
+  onUpdateStatus: (cb: (payload: UpdateInfo) => void) => void;
 };
 
 declare global { interface Window { flowdesk?: FlowdeskApi } }
@@ -379,6 +389,16 @@ const STARTER_TEMPLATES: Array<{ title: string; description: string; plannedMinu
   { title: 'Release Day', description: 'Checklist rilascio, test finali e comunicazione team.', plannedMinutes: 60, priority: 'High', tool: 'PowerAutomate' },
   { title: 'Retro Weekly', description: 'Compila retrospettiva e azioni migliorative.', plannedMinutes: 30, priority: 'Medium', tool: 'Teams' },
   { title: 'Client Delivery', description: 'Consegna, documentazione e handover cliente.', plannedMinutes: 75, priority: 'High', tool: 'SharePoint' },
+];
+
+const WHATS_NEW_ITEMS = [
+  'AI Hub con provider multipli',
+  'M365 Hub con app Microsoft 365 principali',
+  'Hub Browser interno a tab (una sola finestra)',
+  'Fix pagina bianca provider con blocco iframe',
+  'Onboarding primo avvio a 3 step',
+  'Starter template pack installabile in 1 click',
+  'Weekly share toolkit: Share MD + Export PNG',
 ];
 
 /* ═══════════════════════ Helpers ═══════════════════════ */
@@ -687,12 +707,14 @@ function App() {
   /* ── Update Checker ── */
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateChecking, setUpdateChecking] = useState(false);
+  const [updateActionBusy, setUpdateActionBusy] = useState(false);
   const [aiProviderId, setAiProviderId] = useState(AI_PROVIDERS[0].id);
   const [m365AppId, setM365AppId] = useState(M365_APPS[0].id);
   const [hubTabs, setHubTabs] = useState<HubTab[]>([]);
   const [hubActiveTabId, setHubActiveTabId] = useState<string | null>(null);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [weeklyCopied, setWeeklyCopied] = useState(false);
 
   /* ── Reset Data ── */
@@ -873,21 +895,44 @@ function App() {
       setHubTabs(payload.tabs || []);
       setHubActiveTabId(payload.activeTabId || null);
     });
+    api.onUpdateStatus((payload) => {
+      setUpdateInfo(payload);
+      if (payload.phase !== 'checking') setUpdateChecking(false);
+      if (payload.phase !== 'downloading') setUpdateActionBusy(false);
+    });
     api.onToggleDark(() => setDarkMode(d => !d));
     api.onOpenCmdPalette(() => setCmdOpen(true));
     api.getAppVersion().then(v => setAppVersion(v)).catch(() => {});
+    api.getUpdateState().then(setUpdateInfo).catch(() => {});
     api.hubListTabs().then((payload) => {
       setHubTabs(payload.tabs || []);
       setHubActiveTabId(payload.activeTabId || null);
     }).catch(() => {});
   }, [api]);
 
-  // First-run onboarding (viral/growth quick start)
+  // First-run onboarding vs existing-db "what's new" modal
   useEffect(() => {
     if (!api) return;
-    const done = localStorage.getItem('fd-onboarding-v1');
-    if (done !== '1') setOnboardingOpen(true);
-  }, [api]);
+    if (!appVersion || appVersion === '0.0.0') return;
+    let cancelled = false;
+
+    (async () => {
+      const existedDb = await api.dbExistedAtStartup().catch(() => true);
+      if (cancelled) return;
+
+      if (!existedDb) {
+        const done = localStorage.getItem('fd-onboarding-v1');
+        if (done !== '1') setOnboardingOpen(true);
+        return;
+      }
+
+      setOnboardingOpen(false);
+      const lastSeen = localStorage.getItem('fd-whatsnew-last-version');
+      if (lastSeen !== appVersion) setWhatsNewOpen(true);
+    })();
+
+    return () => { cancelled = true; };
+  }, [api, appVersion]);
 
   // Active session ticker
   useEffect(() => {
@@ -1589,8 +1634,14 @@ function App() {
 
   function completeOnboarding() {
     localStorage.setItem('fd-onboarding-v1', '1');
+    if (appVersion && appVersion !== '0.0.0') localStorage.setItem('fd-whatsnew-last-version', appVersion);
     setOnboardingOpen(false);
     setOnboardingStep(0);
+  }
+
+  function closeWhatsNew() {
+    if (appVersion && appVersion !== '0.0.0') localStorage.setItem('fd-whatsnew-last-version', appVersion);
+    setWhatsNewOpen(false);
   }
 
   /* ═══ No API ═══ */
@@ -5442,6 +5493,28 @@ function App() {
                 setUpdateChecking(false);
               }
             };
+            const doDownload = async () => {
+              if (!api) return;
+              setUpdateActionBusy(true);
+              try {
+                const res = await api.downloadUpdate();
+                if (!res.ok && res.error) showToast('error', res.error);
+              } finally {
+                setUpdateActionBusy(false);
+              }
+            };
+            const doInstall = async () => {
+              if (!api) return;
+              setUpdateActionBusy(true);
+              const res = await api.quitAndInstallUpdate();
+              if (!res.ok) {
+                setUpdateActionBusy(false);
+                showToast('error', res.error || 'Impossibile avviare installazione aggiornamento.');
+              }
+            };
+            const autoUpdateEnabled = !!updateInfo?.autoUpdateSupported;
+            const canDownloadInApp = autoUpdateEnabled && !updateInfo?.upToDate && !updateInfo?.downloaded;
+            const canInstallNow = autoUpdateEnabled && !!updateInfo?.downloaded;
 
             return (
             <div className="view">
@@ -5468,10 +5541,30 @@ function App() {
                   <button className="btn-primary" onClick={doCheck} disabled={updateChecking}>
                     {mi(updateChecking ? 'hourglass_empty' : 'refresh')} {updateChecking ? 'Verifica in corso...' : 'Verifica aggiornamenti'}
                   </button>
+                  {canDownloadInApp && (
+                    <button className="btn-success" onClick={doDownload} disabled={updateActionBusy || !!updateInfo?.downloading}>
+                      {mi(updateInfo?.downloading ? 'download' : 'system_update_alt')} {updateInfo?.downloading ? `Download ${Math.round(updateInfo?.progress || 0)}%` : 'Scarica aggiornamento in app'}
+                    </button>
+                  )}
+                  {canInstallNow && (
+                    <button className="btn-success" onClick={doInstall} disabled={updateActionBusy}>
+                      {mi('restart_alt')} Riavvia e installa ora
+                    </button>
+                  )}
                   <button className="btn-secondary" onClick={() => api?.openExternal(`https://github.com/marco-giuseppe-starace/flowdesk/releases`)}>
                     {mi('open_in_new')} Apri pagina Release su GitHub
                   </button>
                 </div>
+                {updateInfo?.downloading && (
+                  <p style={{ margin: '10px 0 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                    Download in corso: <strong>{Math.round(updateInfo.progress || 0)}%</strong>
+                  </p>
+                )}
+                {updateInfo?.downloaded && (
+                  <p style={{ margin: '10px 0 0', color: 'var(--success)', fontSize: '0.9rem' }}>
+                    Aggiornamento scaricato. Puoi installarlo con <strong>Riavvia e installa ora</strong>.
+                  </p>
+                )}
               </div>
 
               {/* Result */}
@@ -5516,7 +5609,7 @@ function App() {
                         </div>
                       )}
                       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                        {updateInfo.downloadUrl && (
+                        {updateInfo.downloadUrl && !autoUpdateEnabled && (
                           <button className="btn-success" onClick={() => api?.openExternal(updateInfo.downloadUrl!)}>
                             {mi('download')} Scarica FlowDesk v{updateInfo.latestVersion}
                           </button>
@@ -5538,11 +5631,22 @@ function App() {
                   <span className="material-symbols-outlined" style={{ fontSize: 24, color: 'var(--primary)', flexShrink: 0, marginTop: 2 }}>info</span>
                   <div style={{ fontSize: '0.88rem', lineHeight: 1.6, color: 'var(--text-muted)' }}>
                     <strong style={{ color: 'var(--text)' }}>Come aggiornare FlowDesk</strong><br />
-                    1. Clicca <em>"Scarica"</em> o visita la pagina delle release<br />
-                    2. Scarica il file <code>.exe</code> dell'ultima versione<br />
-                    3. Chiudi FlowDesk<br />
-                    4. Esegui l'installer — sovrascriverà la versione precedente mantenendo i tuoi dati<br />
-                    5. Riavvia FlowDesk ✓
+                    {autoUpdateEnabled ? (
+                      <>
+                        1. Clicca <em>"Verifica aggiornamenti"</em><br />
+                        2. Se disponibile, clicca <em>"Scarica aggiornamento in app"</em><br />
+                        3. Clicca <em>"Riavvia e installa ora"</em><br />
+                        4. L'installazione termina automaticamente mantenendo i tuoi dati ✓
+                      </>
+                    ) : (
+                      <>
+                        1. Clicca <em>"Scarica"</em> o visita la pagina delle release<br />
+                        2. Scarica il file <code>.exe</code> dell'ultima versione<br />
+                        3. Chiudi FlowDesk<br />
+                        4. Esegui l'installer — sovrascriverà la versione precedente mantenendo i tuoi dati<br />
+                        5. Riavvia FlowDesk ✓
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -5643,6 +5747,34 @@ function App() {
         </div>
       )}
 
+      {/* ═══ What's New (existing DB users) ═══ */}
+      {whatsNewOpen && (
+        <div className="edit-overlay" onClick={closeWhatsNew}>
+          <div className="edit-modal" onClick={e => e.stopPropagation()}>
+            <div className="edit-modal-head">
+              <h3>{mi('new_releases')} Novità di FlowDesk v{appVersion}</h3>
+              <button className="btn-icon btn-del" onClick={closeWhatsNew}>{mi('close')}</button>
+            </div>
+            <p className="view-sub" style={{ marginBottom: 12 }}>
+              Hai già un database esistente: mostriamo solo il riepilogo cambiamenti invece del tour iniziale.
+            </p>
+            <div className="card" style={{ boxShadow: 'none', padding: 12 }}>
+              {WHATS_NEW_ITEMS.map((item, i) => (
+                <div key={i} className="mini-task">
+                  <div className="mini-task-left">
+                    <span className="badge badge-cat">{mi('check_circle')}</span>
+                    <span className="mini-task-title">{item}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="form-row mt-16" style={{ justifyContent: 'flex-end' }}>
+              <button className="btn-primary" onClick={closeWhatsNew}>{mi('check')} Chiudi</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ═══ Edit Task Modal ═══ */}
       {editTask && (() => { const et = editTask; return (
         <div className="edit-overlay" onClick={() => setEditTask(null)}>
@@ -5716,7 +5848,7 @@ function App() {
                 <label>Scrivi <strong>ELIMINA</strong> per confermare:</label>
                 <input value={resetConfirmText} onChange={e => setResetConfirmText(e.target.value)} placeholder="Scrivi ELIMINA" autoFocus />
               </div>
-              <div className="form-row">
+              <div className="form-row reset-actions">
                 <button className="btn-danger-lg fg-1" disabled={resetConfirmText !== 'ELIMINA'} onClick={async () => { if (!api) return; await api.resetAllData(); setResetDone(true); await refreshAll(); }}>{mi('delete_forever')} Cancella tutto</button>
                 <button className="btn-secondary fg-1" onClick={() => setResetConfirmOpen(false)}>Annulla</button>
               </div>

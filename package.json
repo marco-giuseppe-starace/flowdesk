@@ -1,7 +1,7 @@
 {
   "name": "flowdesk",
   "private": true,
-  "version": "0.6.3",
+  "version": "0.7.0",
   "description": "Power Platform productivity tracker — Kanban (drag-and-drop), Timer, Change Log, FDHub, Analyzer, Attachments, Trash/Soft Delete, Recurring Tasks, Toast Notifications, Full JSON Export, OneDrive sync, SharePoint integration, Update Checker",
   "author": "Marco Giuseppe Starace",
   "license": "MIT",
@@ -20,6 +20,7 @@
   "dependencies": {
     "@azure/msal-node": "^5.0.4",
     "better-sqlite3": "^12.6.2",
+    "electron-updater": "^6.8.3",
     "jszip": "^3.10.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
@@ -78,6 +79,13 @@
     "asar": true,
     "asarUnpack": [
       "node_modules/better-sqlite3/**"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "marco-giuseppe-starace",
+        "repo": "flowdesk"
+      }
     ]
   }
 }

@@ -52,6 +52,10 @@
 .btn-danger-lg:disabled { opacity: .4; cursor: not-allowed; }
 
 .reset-modal { max-width: 480px; }
+.reset-actions { margin-top: 12px; gap: 14px; }
+@media (max-width: 560px) {
+  .reset-actions { gap: 10px; }
+}
 .reset-warning { display: flex; align-items: flex-start; gap: 12px; padding: 16px; background: color-mix(in srgb, var(--danger) 8%, transparent); border-radius: 8px; margin-bottom: 16px; }
 .reset-warning-icon { font-size: 28px; color: var(--danger); flex-shrink: 0; }
 .reset-warning p { margin: 0; font-size: 14px; color: var(--text-muted); line-height: 1.6; }

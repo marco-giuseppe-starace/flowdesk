@@ -4,9 +4,75 @@ const fs = require('node:fs');
 const { initDb, closeDb, getDbPath, repo } = require('./db.cjs');
 const { parseMsapp, diffApps } = require('./msapp-parser.cjs');
 const msal = require('@azure/msal-node');
+const { autoUpdater } = require('electron-updater');
 const crypto = require('node:crypto');
 
 const isDev = !app.isPackaged;
+let dbExistedAtStartup = false;
+const GITHUB_REPO = 'marco-giuseppe-starace/flowdesk';
+
+const updateState = {
+  phase: 'idle',
+  autoUpdateSupported: false,
+  upToDate: true,
+  currentVersion: app.getVersion(),
+  latestVersion: app.getVersion(),
+  releaseUrl: `https://github.com/${GITHUB_REPO}/releases`,
+  releaseName: '',
+  publishedAt: '',
+  body: '',
+  progress: 0,
+  downloaded: false,
+  downloading: false,
+  message: '',
+  error: '',
+};
+let autoUpdaterSetupDone = false;
+
+function parseVersion(v) {
+  return String(v || '').replace(/^v/i, '').split('.').map((n) => Number(n) || 0);
+}
+function isVersionGreater(a, b) {
+  const pa = parseVersion(a);
+  const pb = parseVersion(b);
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i += 1) {
+    const av = pa[i] || 0;
+    const bv = pb[i] || 0;
+    if (av > bv) return true;
+    if (av < bv) return false;
+  }
+  return false;
+}
+function sanitizeReleaseBody(body) {
+  if (!body) return '';
+  return String(body).slice(0, 8000);
+}
+function toUpdateInfo() {
+  return {
+    upToDate: updateState.upToDate,
+    currentVersion: updateState.currentVersion,
+    latestVersion: updateState.latestVersion,
+    releaseUrl: updateState.releaseUrl,
+    releaseName: updateState.releaseName,
+    publishedAt: updateState.publishedAt,
+    body: updateState.body,
+    error: updateState.error || undefined,
+    message: updateState.message || undefined,
+    autoUpdateSupported: updateState.autoUpdateSupported,
+    phase: updateState.phase,
+    downloading: updateState.downloading,
+    downloaded: updateState.downloaded,
+    progress: updateState.progress,
+  };
+}
+function pushUpdateState(patch = {}) {
+  Object.assign(updateState, patch);
+  const win = getWin();
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('app:update-status', toUpdateInfo());
+  }
+}
 
 /* ═══ In-memory cache of parsed apps for diff ═══ */
 const parsedAppsCache = new Map(); // id -> parsed result
@@ -956,6 +1022,7 @@ function registerIpcHandlers() {
   /* Database path info */
   ipcMain.handle('db:getPath', () => getDbPath());
   ipcMain.handle('db:getFolder', () => path.dirname(getDbPath()));
+  ipcMain.handle('db:existedAtStartup', () => dbExistedAtStartup);
 
   /* App info */
   ipcMain.handle('app:getVersion', () => app.getVersion());
@@ -1676,9 +1743,10 @@ async function importDb() {
 }
 
 /* ═══════ Update Checker ═══════ */
-const GITHUB_REPO = 'marco-giuseppe-starace/flowdesk';
 
-ipcMain.handle('app:checkForUpdates', async () => {
+
+/* Update Checker / Auto Update */
+async function fetchLatestReleaseFromGithub() {
   const https = require('https');
   const currentVersion = app.getVersion();
   return new Promise((resolve) => {
@@ -1689,15 +1757,24 @@ ipcMain.handle('app:checkForUpdates', async () => {
     };
     https.get(options, (res) => {
       let data = '';
-      res.on('data', chunk => data += chunk);
+      res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
         try {
-          if (res.statusCode === 404) return resolve({ upToDate: true, currentVersion, latestVersion: currentVersion, message: 'Nessuna release trovata su GitHub.' });
+          if (res.statusCode === 404) {
+            return resolve({
+              upToDate: true,
+              currentVersion,
+              latestVersion: currentVersion,
+              message: 'Nessuna release trovata su GitHub.',
+              autoUpdateSupported: false,
+              phase: 'unsupported',
+            });
+          }
           const json = JSON.parse(data);
-          const latestTag = (json.tag_name || '').replace(/^v/, '');
-          const upToDate = latestTag === currentVersion || !latestTag;
-          const asset = (json.assets || []).find(a => a.name && a.name.endsWith('.exe'));
-          resolve({
+          const latestTag = (json.tag_name || '').replace(/^v/i, '');
+          const upToDate = !latestTag || !isVersionGreater(latestTag, currentVersion);
+          const asset = (json.assets || []).find((a) => a.name && a.name.endsWith('.exe'));
+          return resolve({
             upToDate,
             currentVersion,
             latestVersion: latestTag || currentVersion,
@@ -1705,18 +1782,174 @@ ipcMain.handle('app:checkForUpdates', async () => {
             downloadUrl: asset ? asset.browser_download_url : null,
             releaseName: json.name || '',
             publishedAt: json.published_at || '',
-            body: json.body || '',
+            body: sanitizeReleaseBody(json.body || ''),
+            autoUpdateSupported: false,
+            phase: 'unsupported',
           });
         } catch {
-          resolve({ upToDate: true, currentVersion, latestVersion: currentVersion, error: 'Impossibile leggere la risposta di GitHub.' });
+          return resolve({
+            upToDate: true,
+            currentVersion,
+            latestVersion: currentVersion,
+            error: 'Impossibile leggere la risposta di GitHub.',
+            autoUpdateSupported: false,
+            phase: 'error',
+          });
         }
       });
     }).on('error', (err) => {
-      resolve({ upToDate: true, currentVersion, latestVersion: currentVersion, error: `Errore di rete: ${err.message}` });
+      resolve({
+        upToDate: true,
+        currentVersion,
+        latestVersion: currentVersion,
+        error: `Errore di rete: ${err.message}`,
+        autoUpdateSupported: false,
+        phase: 'error',
+      });
     });
   });
-});
+}
 
+function setupAutoUpdater() {
+  if (autoUpdaterSetupDone) return;
+  autoUpdaterSetupDone = true;
+
+  if (isDev) {
+    pushUpdateState({
+      phase: 'unsupported',
+      autoUpdateSupported: false,
+      message: 'Auto-update disattivato in modalita sviluppo.',
+    });
+    return;
+  }
+
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.allowPrerelease = false;
+  autoUpdater.allowDowngrade = false;
+  autoUpdater.setFeedURL({ provider: 'github', owner: 'marco-giuseppe-starace', repo: 'flowdesk' });
+
+  pushUpdateState({
+    autoUpdateSupported: true,
+    currentVersion: app.getVersion(),
+    latestVersion: app.getVersion(),
+    releaseUrl: `https://github.com/${GITHUB_REPO}/releases`,
+  });
+
+  autoUpdater.on('checking-for-update', () => {
+    pushUpdateState({ phase: 'checking', error: '', message: 'Verifica aggiornamenti in corso...' });
+  });
+  autoUpdater.on('update-available', (info) => {
+    const latest = String(info?.version || '').replace(/^v/i, '') || app.getVersion();
+    const notes = Array.isArray(info?.releaseNotes)
+      ? info.releaseNotes.map((r) => r.note).join('\n\n')
+      : info?.releaseNotes;
+    pushUpdateState({
+      phase: 'available',
+      upToDate: false,
+      latestVersion: latest,
+      releaseName: info?.releaseName || '',
+      publishedAt: info?.releaseDate || '',
+      body: sanitizeReleaseBody(notes || ''),
+      downloaded: false,
+      downloading: false,
+      progress: 0,
+      message: 'Aggiornamento disponibile.',
+      error: '',
+    });
+  });
+  autoUpdater.on('update-not-available', (info) => {
+    const latest = String(info?.version || '').replace(/^v/i, '') || app.getVersion();
+    const notes = Array.isArray(info?.releaseNotes)
+      ? info.releaseNotes.map((r) => r.note).join('\n\n')
+      : info?.releaseNotes;
+    pushUpdateState({
+      phase: 'not-available',
+      upToDate: true,
+      latestVersion: latest,
+      releaseName: info?.releaseName || '',
+      publishedAt: info?.releaseDate || '',
+      body: sanitizeReleaseBody(notes || ''),
+      downloaded: false,
+      downloading: false,
+      progress: 0,
+      message: 'Hai gia l\'ultima versione.',
+      error: '',
+    });
+  });
+  autoUpdater.on('download-progress', (progressObj) => {
+    pushUpdateState({
+      phase: 'downloading',
+      downloading: true,
+      downloaded: false,
+      progress: Math.max(0, Math.min(100, Number(progressObj?.percent || 0))),
+      message: 'Download aggiornamento in corso...',
+      error: '',
+    });
+  });
+  autoUpdater.on('update-downloaded', (info) => {
+    const latest = String(info?.version || '').replace(/^v/i, '') || updateState.latestVersion || app.getVersion();
+    const notes = Array.isArray(info?.releaseNotes)
+      ? info.releaseNotes.map((r) => r.note).join('\n\n')
+      : info?.releaseNotes;
+    pushUpdateState({
+      phase: 'downloaded',
+      upToDate: false,
+      latestVersion: latest,
+      releaseName: info?.releaseName || updateState.releaseName || '',
+      publishedAt: info?.releaseDate || updateState.publishedAt || '',
+      body: sanitizeReleaseBody(notes || updateState.body || ''),
+      downloading: false,
+      downloaded: true,
+      progress: 100,
+      message: 'Aggiornamento pronto. Riavvia per installare.',
+      error: '',
+    });
+  });
+  autoUpdater.on('error', (err) => {
+    pushUpdateState({
+      phase: 'error',
+      downloading: false,
+      downloaded: false,
+      progress: 0,
+      error: err?.message || 'Errore sconosciuto durante l\'aggiornamento.',
+      message: '',
+    });
+  });
+}
+
+ipcMain.handle('app:getUpdateState', async () => toUpdateInfo());
+ipcMain.handle('app:checkForUpdates', async () => {
+  if (isDev) return fetchLatestReleaseFromGithub();
+  try {
+    await autoUpdater.checkForUpdates();
+    return toUpdateInfo();
+  } catch (err) {
+    const fallback = await fetchLatestReleaseFromGithub();
+    return { ...fallback, error: `Auto-update non disponibile: ${err?.message || String(err)}` };
+  }
+});
+ipcMain.handle('app:downloadUpdate', async () => {
+  if (isDev) return { ok: false, error: 'Auto-update non disponibile in sviluppo.' };
+  try {
+    await autoUpdater.downloadUpdate();
+    return { ok: true, ...toUpdateInfo() };
+  } catch (err) {
+    pushUpdateState({
+      phase: 'error',
+      downloading: false,
+      downloaded: false,
+      error: err?.message || String(err),
+    });
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
+ipcMain.handle('app:quitAndInstallUpdate', async () => {
+  if (isDev) return { ok: false, error: 'Auto-update non disponibile in sviluppo.' };
+  if (!updateState.downloaded) return { ok: false, error: 'Nessun aggiornamento scaricato.' };
+  setImmediate(() => autoUpdater.quitAndInstall(false, true));
+  return { ok: true };
+});
 ipcMain.handle('app:openExternal', (_, url) => {
   shell.openExternal(url);
 });
@@ -1761,10 +1994,15 @@ app.whenReady().then(async () => {
       }
     }
   }
+  dbExistedAtStartup = fs.existsSync(path.join(dbFolder, 'flowdesk.db'));
   initDb(dbFolder);
   buildMenu();
   registerIpcHandlers();
   createWindow();
+  setupAutoUpdater();
+  if (!isDev) {
+    setTimeout(() => { autoUpdater.checkForUpdates().catch(() => {}); }, 3000);
+  }
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
