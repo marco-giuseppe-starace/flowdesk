@@ -216,9 +216,15 @@ contextBridge.exposeInMainWorld('flowdesk', {
   checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
   openInAppBrowser: (url, title) => ipcRenderer.invoke('app:openInAppBrowser', url, title),
+  hubOpenTab: (url, title) => ipcRenderer.invoke('app:hubOpenTab', url, title),
+  hubActivateTab: (tabId) => ipcRenderer.invoke('app:hubActivateTab', tabId),
+  hubCloseTab: (tabId) => ipcRenderer.invoke('app:hubCloseTab', tabId),
+  hubListTabs: () => ipcRenderer.invoke('app:hubListTabs'),
+  hubFocusWindow: () => ipcRenderer.invoke('app:hubFocusWindow'),
 
   /* Menu events */
   onNavigate: (cb) => ipcRenderer.on('navigate', (_e, view) => cb(view)),
+  onHubTabsChanged: (cb) => ipcRenderer.on('hub:tabsChanged', (_e, payload) => cb(payload)),
   onToggleDark: (cb) => ipcRenderer.on('toggle-dark', () => cb()),
   onOpenCmdPalette: (cb) => ipcRenderer.on('open-cmd-palette', () => cb()),
 });

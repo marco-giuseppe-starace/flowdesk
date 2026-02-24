@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Notification, Menu, shell, dialog } = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain, Notification, Menu, shell, dialog } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { initDb, closeDb, getDbPath, repo } = require('./db.cjs');
@@ -370,6 +370,139 @@ function getWin() {
   return BrowserWindow.getAllWindows()[0] || null;
 }
 
+/* Single internal hub browser with tabs (AI + M365) */
+let hubWin = null;
+let hubTabs = []; // { id, title, url, view }
+let hubActiveTabId = null;
+let hubTabSeq = 1;
+
+function validHttpUrl(input) {
+  const u = String(input || '').trim();
+  return /^https?:\/\//i.test(u);
+}
+
+function hubTabPayload() {
+  return {
+    tabs: hubTabs.map(t => ({ id: t.id, title: t.title, url: t.url })),
+    activeTabId: hubActiveTabId,
+  };
+}
+
+function notifyHubTabsChanged() {
+  const win = getWin();
+  if (win && !win.isDestroyed()) win.webContents.send('hub:tabsChanged', hubTabPayload());
+}
+
+function layoutHubActiveView() {
+  if (!hubWin || hubWin.isDestroyed() || !hubActiveTabId) return;
+  const tab = hubTabs.find(t => t.id === hubActiveTabId);
+  if (!tab || !tab.view) return;
+  const b = hubWin.getContentBounds();
+  tab.view.setBounds({ x: 0, y: 0, width: b.width, height: b.height });
+  tab.view.setAutoResize({ width: true, height: true });
+}
+
+function ensureHubWindow() {
+  if (hubWin && !hubWin.isDestroyed()) return hubWin;
+  const parent = getWin();
+  hubWin = new BrowserWindow({
+    width: 1320,
+    height: 860,
+    minWidth: 980,
+    minHeight: 700,
+    parent: parent || undefined,
+    autoHideMenuBar: true,
+    title: 'FlowDesk Hub Browser',
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+
+  hubWin.on('resize', layoutHubActiveView);
+  hubWin.on('closed', () => {
+    for (const t of hubTabs) {
+      try { if (t.view?.webContents && !t.view.webContents.isDestroyed()) t.view.webContents.destroy(); } catch {}
+    }
+    hubTabs = [];
+    hubActiveTabId = null;
+    hubWin = null;
+    notifyHubTabsChanged();
+  });
+  return hubWin;
+}
+
+function activateHubTab(tabId) {
+  const win = ensureHubWindow();
+  const tab = hubTabs.find(t => t.id === tabId);
+  if (!tab) return { ok: false, error: 'Tab non trovata' };
+  hubActiveTabId = tab.id;
+  win.setBrowserView(tab.view);
+  win.setTitle(`FlowDesk Hub - ${tab.title}`);
+  layoutHubActiveView();
+  if (!win.isVisible()) win.show();
+  win.focus();
+  notifyHubTabsChanged();
+  return { ok: true, tabId: tab.id };
+}
+
+function openHubTab(url, title = 'Nuova scheda', activate = true) {
+  if (!validHttpUrl(url)) return { ok: false, error: 'URL non valida' };
+  const target = String(url).trim();
+  const existing = hubTabs.find(t => t.url === target);
+  if (existing) {
+    if (activate) return activateHubTab(existing.id);
+    return { ok: true, tabId: existing.id };
+  }
+
+  const view = new BrowserView({
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  view.webContents.setWindowOpenHandler(({ url: popupUrl }) => {
+    shell.openExternal(popupUrl);
+    return { action: 'deny' };
+  });
+  view.webContents.loadURL(target);
+
+  const tab = { id: `hub-${Date.now()}-${hubTabSeq++}`, title: String(title || 'Nuova scheda').slice(0, 80), url: target, view };
+  hubTabs.push(tab);
+  if (activate) {
+    const res = activateHubTab(tab.id);
+    if (!res.ok) return res;
+  } else {
+    notifyHubTabsChanged();
+  }
+  return { ok: true, tabId: tab.id };
+}
+
+function closeHubTab(tabId) {
+  const idx = hubTabs.findIndex(t => t.id === tabId);
+  if (idx < 0) return { ok: false, error: 'Tab non trovata' };
+  const closing = hubTabs[idx];
+  const wasActive = closing.id === hubActiveTabId;
+  hubTabs.splice(idx, 1);
+  try { if (closing.view?.webContents && !closing.view.webContents.isDestroyed()) closing.view.webContents.destroy(); } catch {}
+
+  if (hubTabs.length === 0) {
+    hubActiveTabId = null;
+    if (hubWin && !hubWin.isDestroyed()) hubWin.close();
+    notifyHubTabsChanged();
+    return { ok: true };
+  }
+
+  if (wasActive) {
+    const next = hubTabs[Math.max(0, idx - 1)] || hubTabs[0];
+    return activateHubTab(next.id);
+  }
+  notifyHubTabsChanged();
+  return { ok: true };
+}
+
 function sendNav(viewName) {
   const win = getWin();
   if (win) win.webContents.send('navigate', viewName);
@@ -430,6 +563,7 @@ function buildMenu() {
         { label: 'Power Apps Analyzer', accelerator: 'CmdOrCtrl+P', click: () => sendNav('analyzer') },
         { label: 'FDHub', accelerator: 'CmdOrCtrl+H', click: () => sendNav('fdhub') },
         { label: 'AI Hub', accelerator: 'CmdOrCtrl+I', click: () => sendNav('aihub') },
+        { label: 'Microsoft 365 Hub', accelerator: 'CmdOrCtrl+M', click: () => sendNav('m365hub') },
         { type: 'separator' },
         { label: 'Retrospettive', click: () => sendNav('retros') },
         { label: 'Storico', click: () => sendNav('history') },
@@ -1587,37 +1721,19 @@ ipcMain.handle('app:openExternal', (_, url) => {
   shell.openExternal(url);
 });
 
-ipcMain.handle('app:openInAppBrowser', async (_, url, title = 'FlowDesk AI Hub') => {
-  try {
-    const target = String(url || '').trim();
-    if (!/^https?:\/\//i.test(target)) return { ok: false, error: 'URL non valida' };
-
-    const parent = getWin();
-    const aiWin = new BrowserWindow({
-      width: 1320,
-      height: 860,
-      minWidth: 980,
-      minHeight: 700,
-      parent: parent || undefined,
-      autoHideMenuBar: true,
-      title,
-      webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-      },
-    });
-
-    aiWin.webContents.setWindowOpenHandler(({ url: popupUrl }) => {
-      shell.openExternal(popupUrl);
-      return { action: 'deny' };
-    });
-
-    await aiWin.loadURL(target);
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err?.message || 'Impossibile aprire la finestra AI' };
-  }
+ipcMain.handle('app:openInAppBrowser', async (_, url, title = 'FlowDesk Hub Browser') => {
+  // Backward compatibility: now uses the single-tabbed hub window.
+  return openHubTab(url, title, true);
+});
+ipcMain.handle('app:hubOpenTab', async (_, url, title = 'Nuova scheda') => openHubTab(url, title, true));
+ipcMain.handle('app:hubActivateTab', async (_, tabId) => activateHubTab(String(tabId || '')));
+ipcMain.handle('app:hubCloseTab', async (_, tabId) => closeHubTab(String(tabId || '')));
+ipcMain.handle('app:hubListTabs', async () => hubTabPayload());
+ipcMain.handle('app:hubFocusWindow', async () => {
+  const win = ensureHubWindow();
+  win.show();
+  win.focus();
+  return { ok: true };
 });
 
 app.whenReady().then(async () => {

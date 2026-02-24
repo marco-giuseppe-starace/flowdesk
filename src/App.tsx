@@ -17,7 +17,7 @@ type EnvStatus = 'Attivo' | 'Inattivo' | 'Manutenzione';
 type BugSeverity = 'Critical' | 'High' | 'Medium' | 'Low';
 type BugStatus = 'Aperto' | 'In corso' | 'Risolto' | 'Chiuso';
 type LearningCategory = 'Corso' | 'Certificazione' | 'Articolo' | 'Video' | 'Libro' | 'Altro';
-type ViewName = 'dashboard' | 'tasks' | 'timer' | 'changes' | 'notes' | 'goals' | 'projects' | 'search' | 'history' | 'report' | 'snippets' | 'bookmarks' | 'backlog' | 'guide' | 'contacts' | 'environments' | 'retros' | 'bugs' | 'learning' | 'checklists' | 'appimpact' | 'analyzer' | 'fdhub' | 'aihub' | 'sharepoint' | 'updates' | 'trash';
+type ViewName = 'dashboard' | 'tasks' | 'timer' | 'changes' | 'notes' | 'goals' | 'projects' | 'search' | 'history' | 'report' | 'snippets' | 'bookmarks' | 'backlog' | 'guide' | 'contacts' | 'environments' | 'retros' | 'bugs' | 'learning' | 'checklists' | 'appimpact' | 'analyzer' | 'fdhub' | 'aihub' | 'm365hub' | 'sharepoint' | 'updates' | 'trash';
 type RecurrenceType = 'daily' | 'weekly' | 'monthly';
 type TrashItem = { id: number; entityType: string; title: string; deletedAt: string };
 type ToastType = 'success' | 'error' | 'info';
@@ -82,6 +82,7 @@ type SpDrive = { id: string; name: string; description: string; webUrl: string; 
 type SpDriveItem = { id: string; name: string; isFolder: boolean; size: number; mimeType: string; webUrl: string; downloadUrl: string; lastModified: string; childCount: number; createdBy: string };
 type SpTab = 'lists' | 'documents' | 'config';
 type AiProvider = { id: string; name: string; description: string; vendor: string; url: string };
+type HubTab = { id: string; title: string; url: string };
 
 /* ═══ Power Apps Analyzer types ═══ */
 type MsappFormulaComplexity = { length: number; nestingDepth: number; functionCount: number; uniqueFunctions: number; ifCount: number; semicolonCount?: number; score: number };
@@ -268,6 +269,11 @@ type FlowdeskApi = {
   checkForUpdates: () => Promise<UpdateInfo>;
   openExternal: (url: string) => Promise<void>;
   openInAppBrowser: (url: string, title?: string) => Promise<{ ok: boolean; error?: string }>;
+  hubOpenTab: (url: string, title?: string) => Promise<{ ok: boolean; tabId?: string; error?: string }>;
+  hubActivateTab: (tabId: string) => Promise<{ ok: boolean; tabId?: string; error?: string }>;
+  hubCloseTab: (tabId: string) => Promise<{ ok: boolean; error?: string }>;
+  hubListTabs: () => Promise<{ tabs: HubTab[]; activeTabId: string | null }>;
+  hubFocusWindow: () => Promise<{ ok: boolean }>;
   /* Batch tags */
   getAllTaskTags: (taskIds: number[]) => Promise<Record<number, Tag[]>>;
   /* Recurring tasks */
@@ -279,6 +285,7 @@ type FlowdeskApi = {
   emptyTrash: () => Promise<{ ok: boolean }>;
   /* Full JSON export */
   exportFullJson: () => Promise<{ ok: boolean; path?: string }>;
+  onHubTabsChanged: (cb: (payload: { tabs: HubTab[]; activeTabId: string | null }) => void) => void;
 };
 
 declare global { interface Window { flowdesk?: FlowdeskApi } }
@@ -325,6 +332,7 @@ const NAV: { id: ViewName; icon: string; label: string }[] = [
   { id: 'analyzer', icon: 'analytics', label: 'App Analyzer' },
   { id: 'fdhub', icon: 'hub', label: 'FDHub' },
   { id: 'aihub', icon: 'smart_toy', label: 'AI Hub' },
+  { id: 'm365hub', icon: 'apartment', label: 'M365 Hub' },
   { id: 'sharepoint', icon: 'share', label: 'SharePoint' },
   // ── Revisione ──
   { id: 'retros', icon: 'psychology', label: 'Retrospettive' },
@@ -348,6 +356,21 @@ const AI_PROVIDERS: AiProvider[] = [
   { id: 'meta-ai', name: 'Meta AI', description: 'Assistente AI Meta.', vendor: 'Meta', url: 'https://www.meta.ai/' },
   { id: 'poe', name: 'Poe', description: 'Hub multi-modello.', vendor: 'Quora', url: 'https://poe.com/' },
   { id: 'you', name: 'You.com', description: 'Ricerca + chat AI.', vendor: 'You.com', url: 'https://you.com/' },
+];
+
+const M365_APPS: AiProvider[] = [
+  { id: 'm365-home', name: 'Microsoft 365', description: 'Home del workspace Microsoft 365.', vendor: 'Microsoft', url: 'https://www.office.com/' },
+  { id: 'outlook', name: 'Outlook', description: 'Email e calendario.', vendor: 'Microsoft', url: 'https://outlook.office.com/' },
+  { id: 'teams', name: 'Teams', description: 'Chat, call e collaborazione.', vendor: 'Microsoft', url: 'https://teams.microsoft.com/' },
+  { id: 'onedrive', name: 'OneDrive', description: 'Documenti cloud.', vendor: 'Microsoft', url: 'https://onedrive.live.com/' },
+  { id: 'sharepoint-web', name: 'SharePoint Web', description: 'Siti e document libraries.', vendor: 'Microsoft', url: 'https://www.microsoft365.com/launch/sharepoint' },
+  { id: 'planner', name: 'Planner', description: 'Piani e task board.', vendor: 'Microsoft', url: 'https://planner.cloud.microsoft/' },
+  { id: 'todo', name: 'To Do', description: 'Task personali.', vendor: 'Microsoft', url: 'https://to-do.office.com/' },
+  { id: 'loop', name: 'Loop', description: 'Workspace collaborativi.', vendor: 'Microsoft', url: 'https://loop.microsoft.com/' },
+  { id: 'forms', name: 'Forms', description: 'Form e sondaggi.', vendor: 'Microsoft', url: 'https://forms.office.com/' },
+  { id: 'powerapps', name: 'Power Apps', description: 'App low-code.', vendor: 'Microsoft', url: 'https://make.powerapps.com/' },
+  { id: 'powerautomate', name: 'Power Automate', description: 'Workflow e automazioni.', vendor: 'Microsoft', url: 'https://make.powerautomate.com/' },
+  { id: 'powerbi', name: 'Power BI', description: 'Dashboard e analytics.', vendor: 'Microsoft', url: 'https://app.powerbi.com/' },
 ];
 
 /* ═══════════════════════ Helpers ═══════════════════════ */
@@ -657,6 +680,9 @@ function App() {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateChecking, setUpdateChecking] = useState(false);
   const [aiProviderId, setAiProviderId] = useState(AI_PROVIDERS[0].id);
+  const [m365AppId, setM365AppId] = useState(M365_APPS[0].id);
+  const [hubTabs, setHubTabs] = useState<HubTab[]>([]);
+  const [hubActiveTabId, setHubActiveTabId] = useState<string | null>(null);
 
   /* ── Reset Data ── */
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
@@ -768,6 +794,7 @@ function App() {
 
   /* ── Derived ── */
   const activeAiProvider = useMemo(() => AI_PROVIDERS.find(p => p.id === aiProviderId) || AI_PROVIDERS[0], [aiProviderId]);
+  const activeM365App = useMemo(() => M365_APPS.find(p => p.id === m365AppId) || M365_APPS[0], [m365AppId]);
   const tasksDone = useMemo(() => tasks.filter(t => t.status === 'Done').length, [tasks]);
   const totalTracked = useMemo(() => sessions.reduce((a, s) => a + (s.durationMinutes || 0), 0), [sessions]);
   const goalsDone = useMemo(() => goals.filter(g => g.isDone).length, [goals]);
@@ -831,9 +858,17 @@ function App() {
   useEffect(() => {
     if (!api) return;
     api.onNavigate((v: string) => setView(v as ViewName));
+    api.onHubTabsChanged((payload) => {
+      setHubTabs(payload.tabs || []);
+      setHubActiveTabId(payload.activeTabId || null);
+    });
     api.onToggleDark(() => setDarkMode(d => !d));
     api.onOpenCmdPalette(() => setCmdOpen(true));
     api.getAppVersion().then(v => setAppVersion(v)).catch(() => {});
+    api.hubListTabs().then((payload) => {
+      setHubTabs(payload.tabs || []);
+      setHubActiveTabId(payload.activeTabId || null);
+    }).catch(() => {});
   }, [api]);
 
   // Active session ticker
@@ -1408,6 +1443,26 @@ function App() {
     await navigator.clipboard.writeText(genReport());
     setRptCopied(true);
     setTimeout(() => setRptCopied(false), 2000);
+  }
+
+  async function openHubTab(url: string, title: string) {
+    if (!api) return;
+    const res = await api.hubOpenTab(url, title);
+    if (!res?.ok) {
+      showToast('error', `Impossibile aprire ${title}`);
+      return;
+    }
+    await api.hubFocusWindow();
+  }
+
+  async function activateHubTab(tabId: string) {
+    if (!api) return;
+    await api.hubActivateTab(tabId);
+  }
+
+  async function closeHubTab(tabId: string) {
+    if (!api) return;
+    await api.hubCloseTab(tabId);
   }
 
   /* ═══ No API ═══ */
@@ -5098,7 +5153,7 @@ function App() {
           {view === 'aihub' && (
             <div className="view">
               <div className="view-header">
-                <div><h2 className="view-title">{mi('smart_toy')} AI Hub</h2><p className="view-sub">Apri ChatGPT, Copilot e altri assistenti AI direttamente dentro FlowDesk</p></div>
+                <div><h2 className="view-title">{mi('smart_toy')} AI Hub</h2><p className="view-sub">Versione completa: tab condivise in una sola finestra interna, senza caos di popup</p></div>
               </div>
 
               <div className="card mb-20">
@@ -5109,20 +5164,30 @@ function App() {
                       {AI_PROVIDERS.map(p => <option key={p.id} value={p.id}>{p.name} · {p.vendor}</option>)}
                     </select>
                   </div>
-                  <button
-                    className="btn-primary"
-                    onClick={async () => {
-                      const res = await api?.openInAppBrowser(activeAiProvider.url, `AI Hub - ${activeAiProvider.name}`);
-                      if (!res?.ok) showToast('error', `Impossibile aprire ${activeAiProvider.name}`);
-                    }}
-                  >
-                    {mi('open_in_new')} Apri in finestra interna
-                  </button>
-                  <button className="btn-secondary" onClick={() => api?.openExternal(activeAiProvider.url)}>{mi('language')} Apri nel browser</button>
+                  <button className="btn-primary" onClick={() => openHubTab(activeAiProvider.url, activeAiProvider.name)}>{mi('add')} Apri come tab</button>
+                  <button className="btn-secondary" onClick={() => api?.openExternal(activeAiProvider.url)}>{mi('language')} Apri esterno</button>
                 </div>
                 <p className="view-sub" style={{ marginTop: 10 }}>
-                  I provider AI bloccano spesso l&apos;embedding in iframe (pagina bianca). Per questo FlowDesk ora apre ogni provider in una finestra interna dedicata.
+                  I provider AI che bloccano iframe non danno più pagina bianca: vengono aperti in una singola finestra interna con tab gestite da FlowDesk.
                 </p>
+              </div>
+
+              <div className="card mb-20">
+                <div className="hub-tabs-head">
+                  <strong>{mi('tabs')} Tab aperte ({hubTabs.length})</strong>
+                  <button className="btn-secondary" onClick={() => api?.hubFocusWindow()}>{mi('open_in_new')} Porta in primo piano</button>
+                </div>
+                <div className="hub-tabs-list">
+                  {hubTabs.length === 0 && <p className="empty">Nessuna tab aperta</p>}
+                  {hubTabs.map(t => (
+                    <div key={t.id} className={`hub-tab-chip${hubActiveTabId === t.id ? ' active' : ''}`}>
+                      <button className="hub-tab-main" onClick={() => activateHubTab(t.id)} title={t.url}>
+                        <span className="hub-tab-title">{t.title}</span>
+                      </button>
+                      <button className="hub-tab-close" onClick={() => closeHubTab(t.id)} title="Chiudi tab">{mi('close')}</button>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="aihub-grid mb-20">
@@ -5148,24 +5213,72 @@ function App() {
                     <p>{activeAiProvider.url}</p>
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                      className="btn-primary"
-                      onClick={async () => {
-                        const res = await api?.openInAppBrowser(activeAiProvider.url, `AI Hub - ${activeAiProvider.name}`);
-                        if (!res?.ok) showToast('error', `Impossibile aprire ${activeAiProvider.name}`);
-                      }}
-                    >
-                      {mi('open_in_new')} Apri interno
-                    </button>
+                    <button className="btn-primary" onClick={() => openHubTab(activeAiProvider.url, activeAiProvider.name)}>{mi('add')} Apri come tab</button>
                     <button className="btn-secondary" onClick={() => api?.openExternal(activeAiProvider.url)}>{mi('language')} Apri esterno</button>
                   </div>
                 </div>
                 <div className="aihub-frame-wrap aihub-empty">
                   <div className="empty-box">
                     <span className="empty-icon">{mi('smart_toy')}</span>
-                    <p>Seleziona un provider e aprilo in finestra interna.</p>
+                    <p>Apri provider AI come tab e gestiscili qui senza aprire 10 finestre.</p>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ═══════ MICROSOFT 365 HUB ═══════ */}
+          {view === 'm365hub' && (
+            <div className="view">
+              <div className="view-header">
+                <div><h2 className="view-title">{mi('apartment')} Microsoft 365 Hub</h2><p className="view-sub">Outlook, Teams, OneDrive, SharePoint e Power Platform nello stesso browser interno a tab</p></div>
+              </div>
+
+              <div className="card mb-20">
+                <div className="form-row ai-c">
+                  <div className="form-group fg-2">
+                    <label>App Microsoft 365</label>
+                    <select value={activeM365App.id} onChange={e => setM365AppId(e.target.value)}>
+                      {M365_APPS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </div>
+                  <button className="btn-primary" onClick={() => openHubTab(activeM365App.url, activeM365App.name)}>{mi('add')} Apri come tab</button>
+                  <button className="btn-secondary" onClick={() => api?.openExternal(activeM365App.url)}>{mi('language')} Apri esterno</button>
+                </div>
+              </div>
+
+              <div className="card mb-20">
+                <div className="hub-tabs-head">
+                  <strong>{mi('tabs')} Tab aperte ({hubTabs.length})</strong>
+                  <button className="btn-secondary" onClick={() => api?.hubFocusWindow()}>{mi('open_in_new')} Porta in primo piano</button>
+                </div>
+                <div className="hub-tabs-list">
+                  {hubTabs.length === 0 && <p className="empty">Nessuna tab aperta</p>}
+                  {hubTabs.map(t => (
+                    <div key={t.id} className={`hub-tab-chip${hubActiveTabId === t.id ? ' active' : ''}`}>
+                      <button className="hub-tab-main" onClick={() => activateHubTab(t.id)} title={t.url}>
+                        <span className="hub-tab-title">{t.title}</span>
+                      </button>
+                      <button className="hub-tab-close" onClick={() => closeHubTab(t.id)} title="Chiudi tab">{mi('close')}</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="aihub-grid mb-20">
+                {M365_APPS.map(p => (
+                  <button
+                    key={p.id}
+                    className={`aihub-provider${p.id === activeM365App.id ? ' active' : ''}`}
+                    onClick={() => setM365AppId(p.id)}
+                  >
+                    <div className="aihub-provider-top">
+                      <strong>{p.name}</strong>
+                      <span className="badge">{p.vendor}</span>
+                    </div>
+                    <p>{p.description}</p>
+                  </button>
+                ))}
               </div>
             </div>
           )}
