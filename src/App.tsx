@@ -17,7 +17,7 @@ type EnvStatus = 'Attivo' | 'Inattivo' | 'Manutenzione';
 type BugSeverity = 'Critical' | 'High' | 'Medium' | 'Low';
 type BugStatus = 'Aperto' | 'In corso' | 'Risolto' | 'Chiuso';
 type LearningCategory = 'Corso' | 'Certificazione' | 'Articolo' | 'Video' | 'Libro' | 'Altro';
-type ViewName = 'dashboard' | 'tasks' | 'timer' | 'changes' | 'notes' | 'goals' | 'projects' | 'search' | 'history' | 'report' | 'snippets' | 'bookmarks' | 'backlog' | 'guide' | 'contacts' | 'environments' | 'retros' | 'bugs' | 'learning' | 'checklists' | 'appimpact' | 'analyzer' | 'fdhub' | 'sharepoint' | 'updates' | 'trash';
+type ViewName = 'dashboard' | 'tasks' | 'timer' | 'changes' | 'notes' | 'goals' | 'projects' | 'search' | 'history' | 'report' | 'snippets' | 'bookmarks' | 'backlog' | 'guide' | 'contacts' | 'environments' | 'retros' | 'bugs' | 'learning' | 'checklists' | 'appimpact' | 'analyzer' | 'fdhub' | 'aihub' | 'sharepoint' | 'updates' | 'trash';
 type RecurrenceType = 'daily' | 'weekly' | 'monthly';
 type TrashItem = { id: number; entityType: string; title: string; deletedAt: string };
 type ToastType = 'success' | 'error' | 'info';
@@ -81,6 +81,7 @@ type SpColumn = { name: string; displayName: string; type: string; required: boo
 type SpDrive = { id: string; name: string; description: string; webUrl: string; totalSize: number; usedSize: number };
 type SpDriveItem = { id: string; name: string; isFolder: boolean; size: number; mimeType: string; webUrl: string; downloadUrl: string; lastModified: string; childCount: number; createdBy: string };
 type SpTab = 'lists' | 'documents' | 'config';
+type AiProvider = { id: string; name: string; description: string; vendor: string; url: string };
 
 /* ═══ Power Apps Analyzer types ═══ */
 type MsappFormulaComplexity = { length: number; nestingDepth: number; functionCount: number; uniqueFunctions: number; ifCount: number; semicolonCount?: number; score: number };
@@ -322,6 +323,7 @@ const NAV: { id: ViewName; icon: string; label: string }[] = [
   { id: 'appimpact', icon: 'insights', label: 'App Impact' },
   { id: 'analyzer', icon: 'analytics', label: 'App Analyzer' },
   { id: 'fdhub', icon: 'hub', label: 'FDHub' },
+  { id: 'aihub', icon: 'smart_toy', label: 'AI Hub' },
   { id: 'sharepoint', icon: 'share', label: 'SharePoint' },
   // ── Revisione ──
   { id: 'retros', icon: 'psychology', label: 'Retrospettive' },
@@ -332,6 +334,19 @@ const NAV: { id: ViewName; icon: string; label: string }[] = [
   { id: 'trash', icon: 'delete', label: 'Cestino' },
   { id: 'updates', icon: 'system_update', label: 'Aggiornamenti' },
   { id: 'guide', icon: 'help', label: 'Guida' },
+];
+
+const AI_PROVIDERS: AiProvider[] = [
+  { id: 'chatgpt', name: 'ChatGPT', description: 'Assistente generale, coding e analisi.', vendor: 'OpenAI', url: 'https://chat.openai.com/' },
+  { id: 'copilot', name: 'Copilot', description: 'Assistente Microsoft con focus produttivita.', vendor: 'Microsoft', url: 'https://copilot.microsoft.com/' },
+  { id: 'gemini', name: 'Gemini', description: 'Modello multimodale Google.', vendor: 'Google', url: 'https://gemini.google.com/app' },
+  { id: 'claude', name: 'Claude', description: 'Analisi testo lunga e reasoning.', vendor: 'Anthropic', url: 'https://claude.ai/' },
+  { id: 'perplexity', name: 'Perplexity', description: 'Risposte con ricerca web.', vendor: 'Perplexity', url: 'https://www.perplexity.ai/' },
+  { id: 'grok', name: 'Grok', description: 'Assistente AI di xAI.', vendor: 'xAI', url: 'https://grok.com/' },
+  { id: 'mistral', name: 'Le Chat', description: 'Chat AI di Mistral.', vendor: 'Mistral', url: 'https://chat.mistral.ai/' },
+  { id: 'meta-ai', name: 'Meta AI', description: 'Assistente AI Meta.', vendor: 'Meta', url: 'https://www.meta.ai/' },
+  { id: 'poe', name: 'Poe', description: 'Hub multi-modello.', vendor: 'Quora', url: 'https://poe.com/' },
+  { id: 'you', name: 'You.com', description: 'Ricerca + chat AI.', vendor: 'You.com', url: 'https://you.com/' },
 ];
 
 /* ═══════════════════════ Helpers ═══════════════════════ */
@@ -640,6 +655,8 @@ function App() {
   /* ── Update Checker ── */
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateChecking, setUpdateChecking] = useState(false);
+  const [aiProviderId, setAiProviderId] = useState(AI_PROVIDERS[0].id);
+  const [aiFrameKey, setAiFrameKey] = useState(0);
 
   /* ── Reset Data ── */
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
@@ -750,6 +767,7 @@ function App() {
   const [rptCopied, setRptCopied] = useState(false);
 
   /* ── Derived ── */
+  const activeAiProvider = useMemo(() => AI_PROVIDERS.find(p => p.id === aiProviderId) || AI_PROVIDERS[0], [aiProviderId]);
   const tasksDone = useMemo(() => tasks.filter(t => t.status === 'Done').length, [tasks]);
   const totalTracked = useMemo(() => sessions.reduce((a, s) => a + (s.durationMinutes || 0), 0), [sessions]);
   const goalsDone = useMemo(() => goals.filter(g => g.isDone).length, [goals]);
@@ -5075,6 +5093,67 @@ function App() {
             </div>
             );
           })()}
+
+          {/* ═══════ AI HUB ═══════ */}
+          {view === 'aihub' && (
+            <div className="view">
+              <div className="view-header">
+                <div><h2 className="view-title">{mi('smart_toy')} AI Hub</h2><p className="view-sub">Apri ChatGPT, Copilot e altri assistenti AI direttamente dentro FlowDesk</p></div>
+              </div>
+
+              <div className="card mb-20">
+                <div className="form-row ai-c">
+                  <div className="form-group fg-2">
+                    <label>Provider selezionato</label>
+                    <select value={activeAiProvider.id} onChange={e => { setAiProviderId(e.target.value); setAiFrameKey(k => k + 1); }}>
+                      {AI_PROVIDERS.map(p => <option key={p.id} value={p.id}>{p.name} · {p.vendor}</option>)}
+                    </select>
+                  </div>
+                  <button className="btn-secondary" onClick={() => setAiFrameKey(k => k + 1)}>{mi('refresh')} Ricarica</button>
+                  <button className="btn-primary" onClick={() => api?.openExternal(activeAiProvider.url)}>{mi('open_in_new')} Apri nel browser</button>
+                </div>
+                <p className="view-sub" style={{ marginTop: 10 }}>
+                  Nota: alcuni provider possono bloccare l&apos;embedding in iframe. In quel caso usa &quot;Apri nel browser&quot;.
+                </p>
+              </div>
+
+              <div className="aihub-grid mb-20">
+                {AI_PROVIDERS.map(p => (
+                  <button
+                    key={p.id}
+                    className={`aihub-provider${p.id === activeAiProvider.id ? ' active' : ''}`}
+                    onClick={() => { setAiProviderId(p.id); setAiFrameKey(k => k + 1); }}
+                  >
+                    <div className="aihub-provider-top">
+                      <strong>{p.name}</strong>
+                      <span className="badge">{p.vendor}</span>
+                    </div>
+                    <p>{p.description}</p>
+                  </button>
+                ))}
+              </div>
+
+              <div className="card aihub-frame-card">
+                <div className="aihub-frame-head">
+                  <div>
+                    <strong>{activeAiProvider.name}</strong>
+                    <p>{activeAiProvider.url}</p>
+                  </div>
+                  <button className="btn-secondary" onClick={() => api?.openExternal(activeAiProvider.url)}>{mi('open_in_new')} Apri esterno</button>
+                </div>
+                <div className="aihub-frame-wrap">
+                  <iframe
+                    key={`${activeAiProvider.id}-${aiFrameKey}`}
+                    className="aihub-frame"
+                    title={`AI Hub - ${activeAiProvider.name}`}
+                    src={activeAiProvider.url}
+                    referrerPolicy="no-referrer"
+                    sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts allow-downloads"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ═══════ UPDATES ═══════ */}
           {view === 'updates' && (() => {

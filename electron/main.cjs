@@ -429,6 +429,7 @@ function buildMenu() {
         { type: 'separator' },
         { label: 'Power Apps Analyzer', accelerator: 'CmdOrCtrl+P', click: () => sendNav('analyzer') },
         { label: 'FDHub', accelerator: 'CmdOrCtrl+H', click: () => sendNav('fdhub') },
+        { label: 'AI Hub', accelerator: 'CmdOrCtrl+I', click: () => sendNav('aihub') },
         { type: 'separator' },
         { label: 'Retrospettive', click: () => sendNav('retros') },
         { label: 'Storico', click: () => sendNav('history') },
