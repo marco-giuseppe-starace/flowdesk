@@ -373,6 +373,14 @@ const M365_APPS: AiProvider[] = [
   { id: 'powerbi', name: 'Power BI', description: 'Dashboard e analytics.', vendor: 'Microsoft', url: 'https://app.powerbi.com/' },
 ];
 
+const STARTER_TEMPLATES: Array<{ title: string; description: string; plannedMinutes: number; priority: Priority; tool: string }> = [
+  { title: 'Power Apps Sprint', description: 'Build e test funzionalita sprint corrente.', plannedMinutes: 90, priority: 'High', tool: 'PowerApps' },
+  { title: 'Bug Triage', description: 'Analizza bug aperti, priorita e assegnazioni.', plannedMinutes: 45, priority: 'High', tool: 'PowerApps' },
+  { title: 'Release Day', description: 'Checklist rilascio, test finali e comunicazione team.', plannedMinutes: 60, priority: 'High', tool: 'PowerAutomate' },
+  { title: 'Retro Weekly', description: 'Compila retrospettiva e azioni migliorative.', plannedMinutes: 30, priority: 'Medium', tool: 'Teams' },
+  { title: 'Client Delivery', description: 'Consegna, documentazione e handover cliente.', plannedMinutes: 75, priority: 'High', tool: 'SharePoint' },
+];
+
 /* ═══════════════════════ Helpers ═══════════════════════ */
 
 function todayStr() {
@@ -683,6 +691,9 @@ function App() {
   const [m365AppId, setM365AppId] = useState(M365_APPS[0].id);
   const [hubTabs, setHubTabs] = useState<HubTab[]>([]);
   const [hubActiveTabId, setHubActiveTabId] = useState<string | null>(null);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
+  const [weeklyCopied, setWeeklyCopied] = useState(false);
 
   /* ── Reset Data ── */
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
@@ -869,6 +880,13 @@ function App() {
       setHubTabs(payload.tabs || []);
       setHubActiveTabId(payload.activeTabId || null);
     }).catch(() => {});
+  }, [api]);
+
+  // First-run onboarding (viral/growth quick start)
+  useEffect(() => {
+    if (!api) return;
+    const done = localStorage.getItem('fd-onboarding-v1');
+    if (done !== '1') setOnboardingOpen(true);
   }, [api]);
 
   // Active session ticker
@@ -1465,6 +1483,116 @@ function App() {
     await api.hubCloseTab(tabId);
   }
 
+  async function installStarterTemplatePack() {
+    if (!api) return;
+    const existing = new Set(templates.map(t => t.title.trim().toLowerCase()));
+    let created = 0;
+    for (const tpl of STARTER_TEMPLATES) {
+      if (existing.has(tpl.title.trim().toLowerCase())) continue;
+      await api.createTemplate({
+        title: tpl.title,
+        description: tpl.description,
+        plannedMinutes: tpl.plannedMinutes,
+        priority: tpl.priority,
+        tool: tpl.tool,
+      });
+      created++;
+    }
+    await refreshAll();
+    if (created === 0) showToast('info', 'Starter pack già installato');
+    else showToast('success', `Starter pack installato (${created} template)`);
+  }
+
+  async function importDemoData() {
+    if (!api) return;
+    try {
+      const demoProject = await api.createProject({ name: 'FlowDesk Demo', color: '#0ea5e9', description: 'Workspace demo generato automaticamente' });
+      await Promise.all([
+        api.createTask({ title: 'Setup sprint board', description: 'Organizza task e priorità della settimana', plannedMinutes: 45, priority: 'High', scheduledDate: today, projectId: demoProject.id }),
+        api.createTask({ title: 'Review automazioni', description: 'Verifica flow principali e alert', plannedMinutes: 60, priority: 'Medium', scheduledDate: today, projectId: demoProject.id }),
+        api.createTask({ title: 'Client update', description: 'Invia report avanzamento in Teams', plannedMinutes: 30, priority: 'Medium', scheduledDate: today, projectId: demoProject.id }),
+        api.createGoal({ text: 'Chiudere almeno 2 task ad alto impatto', workDate: today }),
+        api.createNote({ category: 'Generale', title: 'Welcome to FlowDesk', content: 'Questi dati demo servono per testare dashboard, report e timer.', workDate: today }),
+      ]);
+      await refreshAll();
+      showToast('success', 'Dati demo importati');
+    } catch {
+      showToast('error', 'Errore import dati demo');
+    }
+  }
+
+  async function copyWeeklySnapshotMarkdown() {
+    if (!api) return;
+    const wr = weekRange(statsWeekOff);
+    const stats = weekStats || await api.getWeekStats(wr.start, wr.end);
+    const topTool = [...(stats.toolUsage || [])].sort((a, b) => b.count - a.count)[0];
+    const md = [
+      `## FlowDesk Weekly Snapshot (${wr.start} → ${wr.end})`,
+      '',
+      `- Tempo totale: **${fmtMin(stats.totalMinutes || 0)}**`,
+      `- Obiettivi: **${stats.goalStats?.done || 0}/${stats.goalStats?.total || 0}**`,
+      `- Tool più usato: **${topTool ? `${topTool.tool} (${topTool.count})` : 'N/D'}**`,
+      '',
+      'Generato con FlowDesk',
+    ].join('\n');
+    try {
+      await navigator.clipboard.writeText(md);
+      setWeeklyCopied(true);
+      setTimeout(() => setWeeklyCopied(false), 2000);
+      showToast('success', 'Snapshot settimanale copiato');
+    } catch {
+      showToast('error', 'Impossibile copiare lo snapshot');
+    }
+  }
+
+  async function exportWeeklySnapshotPng() {
+    if (!api) return;
+    const wr = weekRange(statsWeekOff);
+    const stats = weekStats || await api.getWeekStats(wr.start, wr.end);
+    const topTool = [...(stats.toolUsage || [])].sort((a, b) => b.count - a.count)[0];
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 630;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const grad = ctx.createLinearGradient(0, 0, 1200, 630);
+    grad.addColorStop(0, '#0f172a');
+    grad.addColorStop(1, '#1e293b');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1200, 630);
+
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '700 52px Segoe UI';
+    ctx.fillText('FlowDesk Weekly Snapshot', 64, 100);
+    ctx.font = '400 28px Segoe UI';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText(`${wr.start} → ${wr.end}`, 64, 146);
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = '600 38px Segoe UI';
+    ctx.fillText(`Tempo totale: ${fmtMin(stats.totalMinutes || 0)}`, 64, 250);
+    ctx.fillText(`Obiettivi: ${(stats.goalStats?.done || 0)}/${(stats.goalStats?.total || 0)}`, 64, 318);
+    ctx.fillText(`Tool top: ${topTool ? `${topTool.tool} (${topTool.count})` : 'N/D'}`, 64, 386);
+
+    ctx.font = '500 24px Segoe UI';
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillText('Built with FlowDesk', 64, 560);
+
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = `flowdesk-weekly-${wr.start}-to-${wr.end}.png`;
+    a.click();
+    showToast('success', 'PNG settimanale esportato');
+  }
+
+  function completeOnboarding() {
+    localStorage.setItem('fd-onboarding-v1', '1');
+    setOnboardingOpen(false);
+    setOnboardingStep(0);
+  }
+
   /* ═══ No API ═══ */
   if (!api) {
     return (
@@ -1534,6 +1662,12 @@ function App() {
                   <h2 className="view-title">{greeting()}!</h2>
                   <p className="view-sub">{dateLong(today)}</p>
                 </div>
+                <div className="view-actions">
+                  <button className={`btn-primary btn-sm${weeklyCopied ? ' copied' : ''}`} onClick={copyWeeklySnapshotMarkdown}>
+                    {weeklyCopied ? <>{mi('check')} Copiato</> : <>{mi('content_copy')} Share MD</>}
+                  </button>
+                  <button className="btn-secondary btn-sm" onClick={exportWeeklySnapshotPng}>{mi('image')} Export PNG</button>
+                </div>
               </div>
 
               <div className="kpi-row kpi-5">
@@ -1542,6 +1676,14 @@ function App() {
                 <div className="kpi-card"><div className="kpi-icon ki-time">{mi('timer')}</div><div><span className="kpi-value">{fmtMin(totalTracked)}</span><span className="kpi-label">Tempo</span></div></div>
                 <div className="kpi-card"><div className="kpi-icon ki-changes">{mi('assignment')}</div><div><span className="kpi-value">{changes.length}</span><span className="kpi-label">Modifiche</span></div></div>
                 <div className="kpi-card"><div className="kpi-icon ki-streak">{mi('local_fire_department')}</div><div><span className="kpi-value">{streak.current}</span><span className="kpi-label">Streak {streak.longest > 0 ? `(max ${streak.longest})` : ''}</span></div></div>
+              </div>
+
+              <div className="card mb-20">
+                <div className="card-head">
+                  <h3>{mi('rocket_launch')} Growth Kit</h3>
+                  <button className="btn-link" onClick={() => api?.openExternal('https://github.com/marco-giuseppe-starace/flowdesk')}>⭐ Star su GitHub {mi('open_in_new')}</button>
+                </div>
+                <p className="view-sub">Condividi i risultati settimanali in un click e invita il team a usare FlowDesk.</p>
               </div>
 
               {activeSession && (
@@ -2034,7 +2176,10 @@ function App() {
 
               {/* Templates section */}
               <div className="card mt-20">
-                <div className="card-head"><h3>{mi('description')} Template</h3></div>
+                <div className="card-head">
+                  <h3>{mi('description')} Template</h3>
+                  <button className="btn-secondary btn-sm" onClick={installStarterTemplatePack}>{mi('auto_awesome')} Installa starter pack</button>
+                </div>
                 <form className="form-row mb-12" onSubmit={onCreateTemplate}>
                   <input className="fg-2" value={tplTitle} onChange={e => setTplTitle(e.target.value)} placeholder="Nome template" required />
                   <input type="number" className="fg-num" value={tplMin} min={5} onChange={e => setTplMin(Number(e.target.value))} title="Minuti" />
@@ -5447,6 +5592,56 @@ function App() {
 
         </div>
       </main>
+
+      {/* ═══ First-Run Onboarding ═══ */}
+      {onboardingOpen && (
+        <div className="edit-overlay" onClick={completeOnboarding}>
+          <div className="edit-modal" onClick={e => e.stopPropagation()}>
+            <div className="edit-modal-head">
+              <h3>{mi('rocket_launch')} Benvenuto in FlowDesk</h3>
+              <button className="btn-icon btn-del" onClick={completeOnboarding}>{mi('close')}</button>
+            </div>
+
+            <div className="form-group">
+              {onboardingStep === 0 && (
+                <>
+                  <label>Step 1 di 3</label>
+                  <p className="view-sub">Importa un workspace demo per vedere subito dashboard, report e template in azione.</p>
+                  <div className="form-row mt-16">
+                    <button className="btn-primary" onClick={importDemoData}>{mi('download')} Importa dati demo</button>
+                    <button className="btn-secondary" onClick={() => setOnboardingStep(1)}>Salta</button>
+                  </div>
+                </>
+              )}
+              {onboardingStep === 1 && (
+                <>
+                  <label>Step 2 di 3</label>
+                  <p className="view-sub">Installa lo starter pack con template pronti per sprint, triage, retro e delivery.</p>
+                  <div className="form-row mt-16">
+                    <button className="btn-primary" onClick={installStarterTemplatePack}>{mi('auto_awesome')} Installa starter pack</button>
+                    <button className="btn-secondary" onClick={() => setOnboardingStep(2)}>Continua</button>
+                  </div>
+                </>
+              )}
+              {onboardingStep === 2 && (
+                <>
+                  <label>Step 3 di 3</label>
+                  <p className="view-sub">Condividi la tua weekly snapshot e aiutaci a far crescere la community su GitHub.</p>
+                  <div className="form-row mt-16">
+                    <button className="btn-primary" onClick={() => api?.openExternal('https://github.com/marco-giuseppe-starace/flowdesk')}>⭐ Star su GitHub</button>
+                    <button className="btn-success" onClick={completeOnboarding}>{mi('check')} Inizia a usare FlowDesk</button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="form-row mt-16" style={{ justifyContent: 'space-between' }}>
+              <button className="btn-secondary" disabled={onboardingStep === 0} onClick={() => setOnboardingStep(s => Math.max(0, s - 1))}>{mi('arrow_back')} Indietro</button>
+              <button className="btn-secondary" onClick={() => setOnboardingStep(s => Math.min(2, s + 1))}>{mi('arrow_forward')} Avanti</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ═══ Edit Task Modal ═══ */}
       {editTask && (() => { const et = editTask; return (
