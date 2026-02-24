@@ -267,6 +267,7 @@ type FlowdeskApi = {
   /* Update checker */
   checkForUpdates: () => Promise<UpdateInfo>;
   openExternal: (url: string) => Promise<void>;
+  openInAppBrowser: (url: string, title?: string) => Promise<{ ok: boolean; error?: string }>;
   /* Batch tags */
   getAllTaskTags: (taskIds: number[]) => Promise<Record<number, Tag[]>>;
   /* Recurring tasks */
@@ -656,7 +657,6 @@ function App() {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateChecking, setUpdateChecking] = useState(false);
   const [aiProviderId, setAiProviderId] = useState(AI_PROVIDERS[0].id);
-  const [aiFrameKey, setAiFrameKey] = useState(0);
 
   /* ── Reset Data ── */
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
@@ -5105,15 +5105,23 @@ function App() {
                 <div className="form-row ai-c">
                   <div className="form-group fg-2">
                     <label>Provider selezionato</label>
-                    <select value={activeAiProvider.id} onChange={e => { setAiProviderId(e.target.value); setAiFrameKey(k => k + 1); }}>
+                    <select value={activeAiProvider.id} onChange={e => setAiProviderId(e.target.value)}>
                       {AI_PROVIDERS.map(p => <option key={p.id} value={p.id}>{p.name} · {p.vendor}</option>)}
                     </select>
                   </div>
-                  <button className="btn-secondary" onClick={() => setAiFrameKey(k => k + 1)}>{mi('refresh')} Ricarica</button>
-                  <button className="btn-primary" onClick={() => api?.openExternal(activeAiProvider.url)}>{mi('open_in_new')} Apri nel browser</button>
+                  <button
+                    className="btn-primary"
+                    onClick={async () => {
+                      const res = await api?.openInAppBrowser(activeAiProvider.url, `AI Hub - ${activeAiProvider.name}`);
+                      if (!res?.ok) showToast('error', `Impossibile aprire ${activeAiProvider.name}`);
+                    }}
+                  >
+                    {mi('open_in_new')} Apri in finestra interna
+                  </button>
+                  <button className="btn-secondary" onClick={() => api?.openExternal(activeAiProvider.url)}>{mi('language')} Apri nel browser</button>
                 </div>
                 <p className="view-sub" style={{ marginTop: 10 }}>
-                  Nota: alcuni provider possono bloccare l&apos;embedding in iframe. In quel caso usa &quot;Apri nel browser&quot;.
+                  I provider AI bloccano spesso l&apos;embedding in iframe (pagina bianca). Per questo FlowDesk ora apre ogni provider in una finestra interna dedicata.
                 </p>
               </div>
 
@@ -5122,7 +5130,7 @@ function App() {
                   <button
                     key={p.id}
                     className={`aihub-provider${p.id === activeAiProvider.id ? ' active' : ''}`}
-                    onClick={() => { setAiProviderId(p.id); setAiFrameKey(k => k + 1); }}
+                    onClick={() => setAiProviderId(p.id)}
                   >
                     <div className="aihub-provider-top">
                       <strong>{p.name}</strong>
@@ -5139,17 +5147,24 @@ function App() {
                     <strong>{activeAiProvider.name}</strong>
                     <p>{activeAiProvider.url}</p>
                   </div>
-                  <button className="btn-secondary" onClick={() => api?.openExternal(activeAiProvider.url)}>{mi('open_in_new')} Apri esterno</button>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      className="btn-primary"
+                      onClick={async () => {
+                        const res = await api?.openInAppBrowser(activeAiProvider.url, `AI Hub - ${activeAiProvider.name}`);
+                        if (!res?.ok) showToast('error', `Impossibile aprire ${activeAiProvider.name}`);
+                      }}
+                    >
+                      {mi('open_in_new')} Apri interno
+                    </button>
+                    <button className="btn-secondary" onClick={() => api?.openExternal(activeAiProvider.url)}>{mi('language')} Apri esterno</button>
+                  </div>
                 </div>
-                <div className="aihub-frame-wrap">
-                  <iframe
-                    key={`${activeAiProvider.id}-${aiFrameKey}`}
-                    className="aihub-frame"
-                    title={`AI Hub - ${activeAiProvider.name}`}
-                    src={activeAiProvider.url}
-                    referrerPolicy="no-referrer"
-                    sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts allow-downloads"
-                  />
+                <div className="aihub-frame-wrap aihub-empty">
+                  <div className="empty-box">
+                    <span className="empty-icon">{mi('smart_toy')}</span>
+                    <p>Seleziona un provider e aprilo in finestra interna.</p>
+                  </div>
                 </div>
               </div>
             </div>

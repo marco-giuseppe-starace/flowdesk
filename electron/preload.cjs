@@ -215,6 +215,7 @@ contextBridge.exposeInMainWorld('flowdesk', {
   /* Update checker */
   checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
+  openInAppBrowser: (url, title) => ipcRenderer.invoke('app:openInAppBrowser', url, title),
 
   /* Menu events */
   onNavigate: (cb) => ipcRenderer.on('navigate', (_e, view) => cb(view)),

@@ -1587,6 +1587,39 @@ ipcMain.handle('app:openExternal', (_, url) => {
   shell.openExternal(url);
 });
 
+ipcMain.handle('app:openInAppBrowser', async (_, url, title = 'FlowDesk AI Hub') => {
+  try {
+    const target = String(url || '').trim();
+    if (!/^https?:\/\//i.test(target)) return { ok: false, error: 'URL non valida' };
+
+    const parent = getWin();
+    const aiWin = new BrowserWindow({
+      width: 1320,
+      height: 860,
+      minWidth: 980,
+      minHeight: 700,
+      parent: parent || undefined,
+      autoHideMenuBar: true,
+      title,
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+      },
+    });
+
+    aiWin.webContents.setWindowOpenHandler(({ url: popupUrl }) => {
+      shell.openExternal(popupUrl);
+      return { action: 'deny' };
+    });
+
+    await aiWin.loadURL(target);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Impossibile aprire la finestra AI' };
+  }
+});
+
 app.whenReady().then(async () => {
   let dbFolder;
   if (isFirstRun()) {
