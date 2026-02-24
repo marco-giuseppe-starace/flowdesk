@@ -1061,6 +1061,28 @@ function registerIpcHandlers() {
     return parsed;
   });
 
+  ipcMain.handle('msapp:parseFilePath', async (_, filePath) => {
+    try {
+      const normalized = String(filePath || '').trim();
+      if (!normalized) return { error: 'Percorso file mancante.' };
+      if (!/\.msapp$/i.test(normalized)) return { error: 'Il file deve avere estensione .msapp.' };
+      if (!fs.existsSync(normalized)) return { error: 'File non trovato.' };
+      const stat = fs.statSync(normalized);
+      if (!stat.isFile()) return { error: 'Percorso non valido: non è un file.' };
+
+      const buffer = fs.readFileSync(normalized);
+      const parsed = await parseMsapp(buffer);
+      parsed.filePath = normalized;
+      parsed.fileName = path.basename(normalized);
+      const cacheId = Date.now().toString();
+      parsed._cacheId = cacheId;
+      parsedAppsCache.set(cacheId, parsed);
+      return parsed;
+    } catch (err) {
+      return { error: err?.message || 'Errore durante analisi file .msapp.' };
+    }
+  });
+
   ipcMain.handle('msapp:diff', async (_, cacheIdA, cacheIdB) => {
     const appA = parsedAppsCache.get(cacheIdA);
     const appB = parsedAppsCache.get(cacheIdB);

@@ -17,7 +17,7 @@ type EnvStatus = 'Attivo' | 'Inattivo' | 'Manutenzione';
 type BugSeverity = 'Critical' | 'High' | 'Medium' | 'Low';
 type BugStatus = 'Aperto' | 'In corso' | 'Risolto' | 'Chiuso';
 type LearningCategory = 'Corso' | 'Certificazione' | 'Articolo' | 'Video' | 'Libro' | 'Altro';
-type ViewName = 'dashboard' | 'tasks' | 'timer' | 'changes' | 'notes' | 'goals' | 'projects' | 'search' | 'history' | 'report' | 'snippets' | 'bookmarks' | 'backlog' | 'guide' | 'contacts' | 'environments' | 'retros' | 'bugs' | 'learning' | 'checklists' | 'appimpact' | 'analyzer' | 'fdhub' | 'aihub' | 'm365hub' | 'sharepoint' | 'updates' | 'trash';
+type ViewName = 'dashboard' | 'tasks' | 'timer' | 'changes' | 'notes' | 'goals' | 'projects' | 'search' | 'history' | 'report' | 'snippets' | 'bookmarks' | 'backlog' | 'guide' | 'contacts' | 'environments' | 'retros' | 'bugs' | 'learning' | 'checklists' | 'appimpact' | 'analyzer' | 'templatebuilder' | 'fdhub' | 'aihub' | 'm365hub' | 'sharepoint' | 'updates' | 'trash';
 type RecurrenceType = 'daily' | 'weekly' | 'monthly';
 type TrashItem = { id: number; entityType: string; title: string; deletedAt: string };
 type ToastType = 'success' | 'error' | 'info';
@@ -227,6 +227,7 @@ type FlowdeskApi = {
   /* Power Apps Analyzer */
   msappOpenFile: () => Promise<MsappParsed | null>;
   msappParseBuffer: (buf: number[]) => Promise<MsappParsed>;
+  msappParseFilePath: (filePath: string) => Promise<MsappParsed | { error: string }>;
   msappDiff: (idA: string, idB: string) => Promise<MsappDiff>;
   msappOpenSecondFile: () => Promise<MsappParsed | null>;
   analyzerExportPdf: (data: MsappParsed) => Promise<{ ok: boolean; path?: string; error?: string }>;
@@ -340,6 +341,7 @@ const NAV: { id: ViewName; icon: string; label: string }[] = [
   // ── Analisi ──
   { id: 'appimpact', icon: 'insights', label: 'App Impact' },
   { id: 'analyzer', icon: 'analytics', label: 'App Analyzer' },
+  { id: 'templatebuilder', icon: 'architecture', label: 'Template Builder' },
   { id: 'fdhub', icon: 'hub', label: 'FDHub' },
   { id: 'aihub', icon: 'smart_toy', label: 'AI Hub' },
   { id: 'm365hub', icon: 'apartment', label: 'M365 Hub' },
@@ -400,6 +402,8 @@ const WHATS_NEW_ITEMS = [
   'Starter template pack installabile in 1 click',
   'Weekly share toolkit: Share MD + Export PNG',
 ];
+
+const DEFAULT_TEMPLATE_BUILDER_SEED = 'C:\\Users\\MarcoStarace\\Desktop\\SoftwareDeveloper\\flowdesk\\example_msapps\\Tasks for Desktop - DEV 5 - 17-02-2025.msapp';
 
 /* ═══════════════════════ Helpers ═══════════════════════ */
 
@@ -680,6 +684,15 @@ function App() {
   const [msappSecond, setMsappSecond] = useState<MsappParsed | null>(null);
   const [msappExpandedScreen, setMsappExpandedScreen] = useState<string | null>(null);
   const [msappExpandedFormula, setMsappExpandedFormula] = useState<number | null>(null);
+  const [tbSeedPath, setTbSeedPath] = useState(DEFAULT_TEMPLATE_BUILDER_SEED);
+  const [tbData, setTbData] = useState<MsappParsed | null>(null);
+  const [tbLoading, setTbLoading] = useState(false);
+  const [tbTemplateName, setTbTemplateName] = useState('Power Apps Core Pack');
+  const [tbSelectedScreens, setTbSelectedScreens] = useState<string[]>([]);
+  const [tbIncludeFormulas, setTbIncludeFormulas] = useState(true);
+  const [tbIncludeDataOps, setTbIncludeDataOps] = useState(true);
+  const [tbIncludeFlows, setTbIncludeFlows] = useState(true);
+  const [tbIncludeDataSources, setTbIncludeDataSources] = useState(true);
 
   /* ── SharePoint ── */
   const [spTab, setSpTab] = useState<SpTab>('config');
@@ -1526,6 +1539,153 @@ function App() {
   async function closeHubTab(tabId: string) {
     if (!api) return;
     await api.hubCloseTab(tabId);
+  }
+
+  function tbAutoSelectScreens(parsed: MsappParsed) {
+    const sorted = [...(parsed.summary.screenStats || [])]
+      .sort((a, b) => ((b.controlCount + b.formulaCount) - (a.controlCount + a.formulaCount)))
+      .slice(0, 6)
+      .map(s => s.name);
+    if (sorted.length > 0) return sorted;
+    return (parsed.screens || []).slice(0, 6).map(s => s.name);
+  }
+
+  async function loadTemplateBuilderFromPath(customPath?: string) {
+    if (!api) return;
+    const filePath = (customPath ?? tbSeedPath).trim();
+    if (!filePath) {
+      showToast('error', 'Inserisci un percorso .msapp valido.');
+      return;
+    }
+    setTbLoading(true);
+    try {
+      const res = await api.msappParseFilePath(filePath);
+      if (!res || ('error' in res)) {
+        const errMsg = res && 'error' in res ? res.error : 'Errore analisi file .msapp';
+        showToast('error', errMsg);
+        return;
+      }
+      setTbData(res);
+      setTbSelectedScreens(tbAutoSelectScreens(res));
+      setTbTemplateName(`${(res.appName || res.fileName || 'Template').replace(/\.msapp$/i, '').trim()} Pack`);
+      showToast('success', 'Seed .msapp caricato nel Template Builder');
+    } finally {
+      setTbLoading(false);
+    }
+  }
+
+  async function loadTemplateBuilderFromPicker() {
+    if (!api) return;
+    setTbLoading(true);
+    try {
+      const res = await api.msappOpenFile();
+      if (!res) return;
+      setTbData(res);
+      setTbSeedPath(res.filePath || res.fileName || '');
+      setTbSelectedScreens(tbAutoSelectScreens(res));
+      setTbTemplateName(`${(res.appName || res.fileName || 'Template').replace(/\.msapp$/i, '').trim()} Pack`);
+      showToast('success', 'File .msapp caricato nel Template Builder');
+    } finally {
+      setTbLoading(false);
+    }
+  }
+
+  function toggleTbScreen(screenName: string) {
+    setTbSelectedScreens(prev => prev.includes(screenName) ? prev.filter(s => s !== screenName) : [...prev, screenName]);
+  }
+
+  function buildTemplateBlueprint() {
+    if (!tbData) return null;
+    const selectedSet = new Set(tbSelectedScreens);
+    const selectedScreens = tbData.screens.filter(s => selectedSet.has(s.name));
+    const selectedFormulas = tbIncludeFormulas ? tbData.formulas.filter(f => selectedSet.has(f.screen)) : [];
+    const selectedDataOps = tbIncludeDataOps ? tbData.dataOps.filter(o => selectedSet.has(o.screen)) : [];
+    const selectedFlows = tbIncludeFlows ? tbData.flowCalls.filter(f => selectedSet.has(f.screen)) : [];
+    const selectedDataSources = tbIncludeDataSources
+      ? tbData.dataSources.filter(ds => selectedDataOps.some(op => String(op.target || '').toLowerCase() === String(ds.name || '').toLowerCase()))
+      : [];
+    const screenStats = (tbData.summary.screenStats || []).filter(s => selectedSet.has(s.name));
+
+    return {
+      templateName: tbTemplateName.trim() || 'Power Apps Template Pack',
+      source: {
+        appName: tbData.appName,
+        appVersion: tbData.appVersion,
+        fileName: tbData.fileName || '',
+        filePath: tbData.filePath || '',
+      },
+      generatedAt: new Date().toISOString(),
+      options: {
+        includeFormulas: tbIncludeFormulas,
+        includeDataOps: tbIncludeDataOps,
+        includeFlows: tbIncludeFlows,
+        includeDataSources: tbIncludeDataSources,
+      },
+      summary: {
+        selectedScreens: selectedScreens.length,
+        selectedFormulas: selectedFormulas.length,
+        selectedDataOps: selectedDataOps.length,
+        selectedFlows: selectedFlows.length,
+        selectedDataSources: selectedDataSources.length,
+      },
+      screens: selectedScreens.map(s => ({
+        name: s.name,
+        fileName: s.fileName,
+        controlCount: s.controlCount,
+        controls: s.controls,
+      })),
+      screenStats,
+      formulas: selectedFormulas,
+      dataOps: selectedDataOps,
+      flowCalls: selectedFlows,
+      dataSources: selectedDataSources,
+    };
+  }
+
+  function exportTemplateBlueprintJson() {
+    const blueprint = buildTemplateBlueprint();
+    if (!blueprint) {
+      showToast('error', 'Carica prima un file .msapp.');
+      return;
+    }
+    if (tbSelectedScreens.length === 0) {
+      showToast('error', 'Seleziona almeno una schermata.');
+      return;
+    }
+    const safe = (blueprint.templateName || 'template-pack').replace(/[^a-zA-Z0-9-_]+/g, '-').replace(/-+/g, '-').toLowerCase();
+    downloadFile(JSON.stringify(blueprint, null, 2), `${safe || 'template-pack'}.json`);
+    showToast('success', 'Template pack JSON esportato');
+  }
+
+  async function copyTemplateBlueprintMarkdown() {
+    const blueprint = buildTemplateBlueprint();
+    if (!blueprint) {
+      showToast('error', 'Carica prima un file .msapp.');
+      return;
+    }
+    const md = [
+      `## ${blueprint.templateName}`,
+      '',
+      `Source: **${blueprint.source.appName || blueprint.source.fileName || 'N/A'}**`,
+      `Generated: ${new Date(blueprint.generatedAt).toLocaleString('it-IT')}`,
+      '',
+      '### Scope',
+      `- Screens: **${blueprint.summary.selectedScreens}**`,
+      `- Formulas: **${blueprint.summary.selectedFormulas}**`,
+      `- DataOps: **${blueprint.summary.selectedDataOps}**`,
+      `- Flows: **${blueprint.summary.selectedFlows}**`,
+      `- DataSources: **${blueprint.summary.selectedDataSources}**`,
+      '',
+      '### Selected Screens',
+      ...blueprint.screens.map((s) => `- ${s.name} (${s.controlCount} controls)`),
+    ].join('\n');
+
+    try {
+      await navigator.clipboard.writeText(md);
+      showToast('success', 'Blueprint markdown copiato');
+    } catch {
+      showToast('error', 'Impossibile copiare markdown');
+    }
   }
 
   async function installStarterTemplatePack() {
@@ -3225,6 +3385,105 @@ function App() {
                   </>
                 );
               })()}
+            </div>
+          )}
+
+          {/* ═══════ TEMPLATE BUILDER ═══════ */}
+          {view === 'templatebuilder' && (
+            <div className="view">
+              <div className="view-header">
+                <div>
+                  <h2 className="view-title">{mi('architecture')} Power Apps Template Builder</h2>
+                  <p className="view-sub">Costruisci un template pack grafico partendo da un file .msapp reale</p>
+                </div>
+              </div>
+
+              <div className="card mb-16">
+                <h3>{mi('upload_file')} Seed .msapp</h3>
+                <div className="form-row ai-c">
+                  <input
+                    className="fg-2"
+                    value={tbSeedPath}
+                    onChange={e => setTbSeedPath(e.target.value)}
+                    placeholder="Percorso completo file .msapp"
+                  />
+                  <button className="btn-primary" onClick={() => loadTemplateBuilderFromPath()} disabled={tbLoading}>
+                    {mi(tbLoading ? 'hourglass_empty' : 'analytics')} {tbLoading ? 'Analisi...' : 'Analizza percorso'}
+                  </button>
+                  <button className="btn-secondary" onClick={loadTemplateBuilderFromPicker} disabled={tbLoading}>
+                    {mi('folder_open')} Seleziona file
+                  </button>
+                </div>
+                <p className="muted mt-8">Tip: puoi usare direttamente il seed che mi hai passato e poi salvare il pack JSON.</p>
+              </div>
+
+              {!tbData && !tbLoading && (
+                <div className="card ta-c">
+                  <p className="empty">{mi('science')} Carica un .msapp per iniziare il Template Builder.</p>
+                </div>
+              )}
+
+              {tbData && (
+                <>
+                  <div className="grid-3 mb-16">
+                    <div className="card"><strong>{tbData.screens.length}</strong><p className="muted">Schermate</p></div>
+                    <div className="card"><strong>{tbData.summary.totalFormulas}</strong><p className="muted">Formule</p></div>
+                    <div className="card"><strong>{tbData.summary.dataOpCount}</strong><p className="muted">Data Ops</p></div>
+                  </div>
+
+                  <div className="card mb-16">
+                    <h3>{mi('construction')} Configurazione template pack</h3>
+                    <div className="form-row mb-12">
+                      <div className="form-group fg-2">
+                        <label>Nome template pack</label>
+                        <input value={tbTemplateName} onChange={e => setTbTemplateName(e.target.value)} placeholder="Es: Canvas Enterprise Starter" />
+                      </div>
+                    </div>
+                    <div className="form-row ai-c">
+                      <label className="tb-toggle"><input type="checkbox" checked={tbIncludeFormulas} onChange={e => setTbIncludeFormulas(e.target.checked)} /> Includi formule</label>
+                      <label className="tb-toggle"><input type="checkbox" checked={tbIncludeDataOps} onChange={e => setTbIncludeDataOps(e.target.checked)} /> Includi data operations</label>
+                      <label className="tb-toggle"><input type="checkbox" checked={tbIncludeFlows} onChange={e => setTbIncludeFlows(e.target.checked)} /> Includi flow calls</label>
+                      <label className="tb-toggle"><input type="checkbox" checked={tbIncludeDataSources} onChange={e => setTbIncludeDataSources(e.target.checked)} /> Includi data source</label>
+                    </div>
+                  </div>
+
+                  <div className="card mb-16">
+                    <div className="tb-head-row">
+                      <h3>{mi('grid_view')} Selezione grafica schermate</h3>
+                      <div className="form-row">
+                        <button className="btn-secondary btn-sm" onClick={() => setTbSelectedScreens(tbData.screens.map(s => s.name))}>{mi('select_all')} Seleziona tutte</button>
+                        <button className="btn-secondary btn-sm" onClick={() => setTbSelectedScreens([])}>{mi('deselect')} Deseleziona</button>
+                      </div>
+                    </div>
+                    <div className="tb-screen-grid">
+                      {tbData.screens.map(sc => {
+                        const stats = (tbData.summary.screenStats || []).find(s => s.name === sc.name);
+                        const selected = tbSelectedScreens.includes(sc.name);
+                        const sevClass = (stats?.issueCount || 0) >= 8 ? 'high' : (stats?.issueCount || 0) >= 3 ? 'med' : 'low';
+                        return (
+                          <button key={sc.name} className={`tb-screen-card ${selected ? 'active' : ''}`} onClick={() => toggleTbScreen(sc.name)}>
+                            <div className="tb-screen-top">
+                              <strong>{sc.name}</strong>
+                              <span className={`tb-risk ${sevClass}`}>{(stats?.issueCount || 0)} issues</span>
+                            </div>
+                            <p>{sc.controlCount} controlli · {stats?.formulaCount || 0} formule</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="card">
+                    <h3>{mi('package_2')} Export template pack</h3>
+                    <p className="muted mb-12">Schermate selezionate: <strong>{tbSelectedScreens.length}</strong></p>
+                    <div className="form-row">
+                      <button className="btn-primary" onClick={exportTemplateBlueprintJson}>{mi('download')} Esporta JSON</button>
+                      <button className="btn-secondary" onClick={copyTemplateBlueprintMarkdown}>{mi('content_copy')} Copia blueprint markdown</button>
+                      {tbData && <button className="btn-secondary" onClick={() => { setMsappData(tbData); setView('analyzer'); }}>{mi('analytics')} Apri in Analyzer</button>}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 

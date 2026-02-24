@@ -186,6 +186,7 @@ contextBridge.exposeInMainWorld('flowdesk', {
   /* Power Apps Analyzer */
   msappOpenFile: () => ipcRenderer.invoke('msapp:openFile'),
   msappParseBuffer: (buf) => ipcRenderer.invoke('msapp:parseBuffer', Array.from(buf)),
+  msappParseFilePath: (filePath) => ipcRenderer.invoke('msapp:parseFilePath', filePath),
   msappDiff: (idA, idB) => ipcRenderer.invoke('msapp:diff', idA, idB),
   msappOpenSecondFile: () => ipcRenderer.invoke('msapp:openSecondFile'),
   analyzerExportPdf: (analysisData) => ipcRenderer.invoke('analyzer:exportPdf', analysisData),
