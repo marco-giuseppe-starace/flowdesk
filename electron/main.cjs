@@ -8,6 +8,7 @@ const { autoUpdater } = require('electron-updater');
 const crypto = require('node:crypto');
 
 const isDev = !app.isPackaged;
+const isPortable = Boolean(process.env.PORTABLE_EXECUTABLE_FILE);
 let dbExistedAtStartup = false;
 const GITHUB_REPO = 'marco-giuseppe-starace/flowdesk';
 
@@ -434,6 +435,15 @@ async function askDbFolderOnFirstRun() {
 
 function getWin() {
   return BrowserWindow.getAllWindows()[0] || null;
+}
+
+function configureStableUserDataPath() {
+  const stableUserData = path.join(app.getPath('appData'), 'FlowDesk');
+  try {
+    app.setPath('userData', stableUserData);
+  } catch (err) {
+    console.warn('[FlowDesk] Impossibile impostare un percorso userData stabile:', err?.message || err);
+  }
 }
 
 /* Single internal hub browser with tabs (AI + M365) */
@@ -1844,6 +1854,14 @@ function setupAutoUpdater() {
     });
     return;
   }
+  if (isPortable) {
+    pushUpdateState({
+      phase: 'unsupported',
+      autoUpdateSupported: false,
+      message: 'Auto-update disattivato nella versione portable.',
+    });
+    return;
+  }
 
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
@@ -1942,7 +1960,7 @@ function setupAutoUpdater() {
 
 ipcMain.handle('app:getUpdateState', async () => toUpdateInfo());
 ipcMain.handle('app:checkForUpdates', async () => {
-  if (isDev) return fetchLatestReleaseFromGithub();
+  if (isDev || isPortable) return fetchLatestReleaseFromGithub();
   try {
     await autoUpdater.checkForUpdates();
     return toUpdateInfo();
@@ -1952,7 +1970,7 @@ ipcMain.handle('app:checkForUpdates', async () => {
   }
 });
 ipcMain.handle('app:downloadUpdate', async () => {
-  if (isDev) return { ok: false, error: 'Auto-update non disponibile in sviluppo.' };
+  if (isDev || isPortable) return { ok: false, error: 'Auto-update non disponibile in questa modalita.' };
   try {
     await autoUpdater.downloadUpdate();
     return { ok: true, ...toUpdateInfo() };
@@ -1967,7 +1985,7 @@ ipcMain.handle('app:downloadUpdate', async () => {
   }
 });
 ipcMain.handle('app:quitAndInstallUpdate', async () => {
-  if (isDev) return { ok: false, error: 'Auto-update non disponibile in sviluppo.' };
+  if (isDev || isPortable) return { ok: false, error: 'Auto-update non disponibile in questa modalita.' };
   if (!updateState.downloaded) return { ok: false, error: 'Nessun aggiornamento scaricato.' };
   setImmediate(() => autoUpdater.quitAndInstall(false, true));
   return { ok: true };
@@ -1992,6 +2010,8 @@ ipcMain.handle('app:hubFocusWindow', async () => {
 });
 
 app.whenReady().then(async () => {
+  configureStableUserDataPath();
+
   let dbFolder;
   if (isFirstRun()) {
     // Prima di chiedere la cartella, controlla se esiste già un DB da recuperare
