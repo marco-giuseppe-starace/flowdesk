@@ -411,7 +411,7 @@ const WHATS_NEW_ITEMS = [
   'Weekly share toolkit: Share MD + Export PNG',
 ];
 
-const DEFAULT_TEMPLATE_BUILDER_SEED = 'C:\\Users\\MarcoStarace\\Desktop\\SoftwareDeveloper\\flowdesk\\example_msapps\\Tasks for Desktop - DEV 5 - 17-02-2025.msapp';
+const DEFAULT_TEMPLATE_BUILDER_SEED = '';
 const TB_BLOCK_LIBRARY: Array<{ kind: TbBlockKind; label: string; icon: string; description: string; defaults: Record<string, string> }> = [
   { kind: 'Screen', label: 'Screen', icon: 'phone_android', description: 'Blocco radice schermata canvas.', defaults: { name: 'Screen_01', layout: 'Responsive' } },
   { kind: 'Header', label: 'Header', icon: 'web_asset', description: 'Intestazione con titolo e azioni.', defaults: { title: 'Header', subtitle: 'Page subtitle' } },
@@ -3574,7 +3574,7 @@ function App() {
                     className="fg-2"
                     value={tbSeedPath}
                     onChange={e => setTbSeedPath(e.target.value)}
-                    placeholder="Percorso completo file .msapp"
+                    placeholder="Es: C:\\Projects\\PowerApps\\MyApp.msapp"
                   />
                   <button className="btn-primary" onClick={() => loadTemplateBuilderFromPath()} disabled={tbLoading}>
                     {mi(tbLoading ? 'hourglass_empty' : 'analytics')} {tbLoading ? 'Analisi...' : 'Analizza percorso'}
@@ -3583,7 +3583,7 @@ function App() {
                     {mi('folder_open')} Seleziona file
                   </button>
                 </div>
-                <p className="muted mt-8">Tip: puoi usare direttamente il seed che mi hai passato e poi salvare il pack JSON.</p>
+                <p className="muted mt-8">Tip: inserisci un percorso locale .msapp oppure usa "Seleziona file".</p>
               </div>
 
               {!tbData && !tbLoading && (

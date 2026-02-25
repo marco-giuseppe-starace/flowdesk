@@ -31,3 +31,4 @@ build/
 *.yml
 !electron-builder.yml
 /example_msapps
+/release_md_files
