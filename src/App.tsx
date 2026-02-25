@@ -88,6 +88,14 @@ type SpDriveItem = { id: string; name: string; isFolder: boolean; size: number; 
 type SpTab = 'lists' | 'documents' | 'config';
 type AiProvider = { id: string; name: string; description: string; vendor: string; url: string };
 type HubTab = { id: string; title: string; url: string };
+type TbBlockKind = 'Screen' | 'Header' | 'Gallery' | 'Form' | 'CommandBar' | 'FilterPanel' | 'ActionGroup' | 'DataSourceBinding';
+type TbCanvasBlock = {
+  id: string;
+  kind: TbBlockKind;
+  title: string;
+  parentId: string | null;
+  settings: Record<string, string>;
+};
 
 /* ═══ Power Apps Analyzer types ═══ */
 type MsappFormulaComplexity = { length: number; nestingDepth: number; functionCount: number; uniqueFunctions: number; ifCount: number; semicolonCount?: number; score: number };
@@ -404,6 +412,16 @@ const WHATS_NEW_ITEMS = [
 ];
 
 const DEFAULT_TEMPLATE_BUILDER_SEED = 'C:\\Users\\MarcoStarace\\Desktop\\SoftwareDeveloper\\flowdesk\\example_msapps\\Tasks for Desktop - DEV 5 - 17-02-2025.msapp';
+const TB_BLOCK_LIBRARY: Array<{ kind: TbBlockKind; label: string; icon: string; description: string; defaults: Record<string, string> }> = [
+  { kind: 'Screen', label: 'Screen', icon: 'phone_android', description: 'Blocco radice schermata canvas.', defaults: { name: 'Screen_01', layout: 'Responsive' } },
+  { kind: 'Header', label: 'Header', icon: 'web_asset', description: 'Intestazione con titolo e azioni.', defaults: { title: 'Header', subtitle: 'Page subtitle' } },
+  { kind: 'Gallery', label: 'Gallery', icon: 'view_list', description: 'Lista dati con template item.', defaults: { dataSource: 'Tasks', itemTemplate: 'CardCompact' } },
+  { kind: 'Form', label: 'Form', icon: 'dynamic_form', description: 'Form CRUD con validazioni base.', defaults: { mode: 'Edit', dataSource: 'Tasks' } },
+  { kind: 'CommandBar', label: 'Command Bar', icon: 'toolbar', description: 'Barra azioni principali schermata.', defaults: { actions: 'New,Save,Delete' } },
+  { kind: 'FilterPanel', label: 'Filter Panel', icon: 'filter_alt', description: 'Filtri e ricerca per gallery/form.', defaults: { fields: 'Status,Priority,Owner' } },
+  { kind: 'ActionGroup', label: 'Action Group', icon: 'bolt', description: 'Macro azioni e formula handlers.', defaults: { onSelect: 'Notify("Done")' } },
+  { kind: 'DataSourceBinding', label: 'Datasource Binding', icon: 'database', description: 'Mappa controlli a datasource.', defaults: { connector: 'Dataverse', table: 'Tasks' } },
+];
 
 /* ═══════════════════════ Helpers ═══════════════════════ */
 
@@ -482,6 +500,19 @@ function downloadFile(content: string, filename: string) {
   const a = document.createElement('a');
   a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
+}
+
+function formatReleaseBody(raw?: string) {
+  const body = String(raw || '');
+  if (!body) return '';
+  if (!/[<][a-z!/]/i.test(body)) return body;
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(body, 'text/html');
+    return (doc.body?.textContent || body).replace(/\n{3,}/g, '\n\n').trim();
+  } catch {
+    return body.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  }
 }
 
 /* ═══════════════════════ App ═══════════════════════ */
@@ -693,6 +724,10 @@ function App() {
   const [tbIncludeDataOps, setTbIncludeDataOps] = useState(true);
   const [tbIncludeFlows, setTbIncludeFlows] = useState(true);
   const [tbIncludeDataSources, setTbIncludeDataSources] = useState(true);
+  const [tbCanvasBlocks, setTbCanvasBlocks] = useState<TbCanvasBlock[]>([]);
+  const [tbSelectedBlockId, setTbSelectedBlockId] = useState<string | null>(null);
+  const [tbDraggingPaletteKind, setTbDraggingPaletteKind] = useState<TbBlockKind | null>(null);
+  const [tbDraggingBlockId, setTbDraggingBlockId] = useState<string | null>(null);
 
   /* ── SharePoint ── */
   const [spTab, setSpTab] = useState<SpTab>('config');
@@ -1568,6 +1603,8 @@ function App() {
       setTbData(res);
       setTbSelectedScreens(tbAutoSelectScreens(res));
       setTbTemplateName(`${(res.appName || res.fileName || 'Template').replace(/\.msapp$/i, '').trim()} Pack`);
+      setTbCanvasBlocks([]);
+      setTbSelectedBlockId(null);
       showToast('success', 'Seed .msapp caricato nel Template Builder');
     } finally {
       setTbLoading(false);
@@ -1584,6 +1621,8 @@ function App() {
       setTbSeedPath(res.filePath || res.fileName || '');
       setTbSelectedScreens(tbAutoSelectScreens(res));
       setTbTemplateName(`${(res.appName || res.fileName || 'Template').replace(/\.msapp$/i, '').trim()} Pack`);
+      setTbCanvasBlocks([]);
+      setTbSelectedBlockId(null);
       showToast('success', 'File .msapp caricato nel Template Builder');
     } finally {
       setTbLoading(false);
@@ -1592,6 +1631,132 @@ function App() {
 
   function toggleTbScreen(screenName: string) {
     setTbSelectedScreens(prev => prev.includes(screenName) ? prev.filter(s => s !== screenName) : [...prev, screenName]);
+  }
+
+  function tbNewId() {
+    return `tb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function tbCreateBlock(kind: TbBlockKind, parentId: string | null = null): TbCanvasBlock {
+    const lib = TB_BLOCK_LIBRARY.find(b => b.kind === kind);
+    return {
+      id: tbNewId(),
+      kind,
+      title: lib?.label || kind,
+      parentId,
+      settings: { ...(lib?.defaults || {}) },
+    };
+  }
+
+  function tbAddBlock(kind: TbBlockKind, parentId: string | null = null) {
+    const block = tbCreateBlock(kind, parentId);
+    setTbCanvasBlocks(prev => [...prev, block]);
+    setTbSelectedBlockId(block.id);
+  }
+
+  function tbMoveBlock(dragId: string, targetId: string) {
+    if (dragId === targetId) return;
+    setTbCanvasBlocks(prev => {
+      const from = prev.findIndex(b => b.id === dragId);
+      const to = prev.findIndex(b => b.id === targetId);
+      if (from < 0 || to < 0) return prev;
+      const arr = [...prev];
+      const [item] = arr.splice(from, 1);
+      arr.splice(to, 0, item);
+      return arr;
+    });
+  }
+
+  function tbUpdateBlock(id: string, patch: Partial<TbCanvasBlock>) {
+    setTbCanvasBlocks(prev => prev.map(b => b.id === id ? { ...b, ...patch } : b));
+  }
+
+  function tbUpdateBlockSetting(id: string, key: string, value: string) {
+    setTbCanvasBlocks(prev => prev.map(b => b.id === id ? { ...b, settings: { ...b.settings, [key]: value } } : b));
+  }
+
+  function tbDeleteBlock(id: string) {
+    setTbCanvasBlocks(prev => prev.filter(b => b.id !== id && b.parentId !== id));
+    setTbSelectedBlockId(prev => prev === id ? null : prev);
+  }
+
+  function tbDuplicateBlock(id: string) {
+    const src = tbCanvasBlocks.find(b => b.id === id);
+    if (!src) return;
+    const cloned: TbCanvasBlock = { ...src, id: tbNewId(), title: `${src.title} Copy` };
+    setTbCanvasBlocks(prev => [...prev, cloned]);
+    setTbSelectedBlockId(cloned.id);
+  }
+
+  function tbGenerateFromSelectedScreens() {
+    if (!tbData) return;
+    if (tbSelectedScreens.length === 0) {
+      showToast('error', 'Seleziona almeno una schermata per autogenerare il canvas.');
+      return;
+    }
+    const selectedSet = new Set(tbSelectedScreens);
+    const generated: TbCanvasBlock[] = [];
+    for (const sc of tbData.screens.filter(s => selectedSet.has(s.name))) {
+      const screenBlock = tbCreateBlock('Screen');
+      screenBlock.title = sc.name;
+      screenBlock.settings.name = sc.name;
+      generated.push(screenBlock);
+
+      const stats = (tbData.summary.screenStats || []).find(s => s.name === sc.name);
+      if ((stats?.formulaCount || 0) > 0) {
+        const action = tbCreateBlock('ActionGroup', screenBlock.id);
+        action.title = `${sc.name} Actions`;
+        action.settings.onSelect = '/* formula handlers */';
+        generated.push(action);
+      }
+      if ((stats?.dataOpCount || 0) > 0) {
+        const form = tbCreateBlock('Form', screenBlock.id);
+        form.title = `${sc.name} Form`;
+        generated.push(form);
+      } else {
+        const gallery = tbCreateBlock('Gallery', screenBlock.id);
+        gallery.title = `${sc.name} Gallery`;
+        generated.push(gallery);
+      }
+    }
+    setTbCanvasBlocks(generated);
+    setTbSelectedBlockId(generated[0]?.id || null);
+    showToast('success', `Canvas generato: ${generated.length} blocchi`);
+  }
+
+  function tbExportCanvasLayout() {
+    const payload = {
+      version: '1.0',
+      generatedAt: new Date().toISOString(),
+      blocks: tbCanvasBlocks,
+    };
+    const safe = (tbTemplateName || 'canvas-layout').replace(/[^a-zA-Z0-9-_]+/g, '-').replace(/-+/g, '-').toLowerCase();
+    downloadFile(JSON.stringify(payload, null, 2), `${safe || 'canvas-layout'}-layout.json`);
+    showToast('success', 'Canvas layout esportato');
+  }
+
+  async function tbImportCanvasLayout(ev: React.ChangeEvent<HTMLInputElement>) {
+    const f = ev.target.files?.[0];
+    if (!f) return;
+    try {
+      const txt = await f.text();
+      const parsed = JSON.parse(txt);
+      const blocks = Array.isArray(parsed?.blocks) ? parsed.blocks : [];
+      const normalized: TbCanvasBlock[] = blocks.map((b: TbCanvasBlock) => ({
+        id: String(b.id || tbNewId()),
+        kind: b.kind,
+        title: String(b.title || b.kind || 'Block'),
+        parentId: b.parentId ?? null,
+        settings: typeof b.settings === 'object' && b.settings ? b.settings : {},
+      }));
+      setTbCanvasBlocks(normalized);
+      setTbSelectedBlockId(normalized[0]?.id || null);
+      showToast('success', `Layout importato (${normalized.length} blocchi)`);
+    } catch {
+      showToast('error', 'File layout non valido');
+    } finally {
+      ev.target.value = '';
+    }
   }
 
   function buildTemplateBlueprint() {
@@ -1639,6 +1804,10 @@ function App() {
       dataOps: selectedDataOps,
       flowCalls: selectedFlows,
       dataSources: selectedDataSources,
+      canvasBuilder: {
+        blockCount: tbCanvasBlocks.length,
+        blocks: tbCanvasBlocks,
+      },
     };
   }
 
@@ -3449,7 +3618,7 @@ function App() {
 
                   <div className="card mb-16">
                     <div className="tb-head-row">
-                      <h3>{mi('grid_view')} Selezione grafica schermate</h3>
+                      <h3>{mi('grid_view')} Selezione grafica schermate (seed)</h3>
                       <div className="form-row">
                         <button className="btn-secondary btn-sm" onClick={() => setTbSelectedScreens(tbData.screens.map(s => s.name))}>{mi('select_all')} Seleziona tutte</button>
                         <button className="btn-secondary btn-sm" onClick={() => setTbSelectedScreens([])}>{mi('deselect')} Deseleziona</button>
@@ -3473,9 +3642,141 @@ function App() {
                     </div>
                   </div>
 
+                  <div className="tb-gutenberg">
+                    <div className="card tb-panel">
+                      <div className="tb-head-row">
+                        <h3>{mi('library_books')} Palette blocchi</h3>
+                        <button className="btn-secondary btn-sm" onClick={tbGenerateFromSelectedScreens}>{mi('auto_awesome')} Auto-genera</button>
+                      </div>
+                      <div className="tb-palette">
+                        {TB_BLOCK_LIBRARY.map(block => (
+                          <button
+                            key={block.kind}
+                            className="tb-palette-item"
+                            draggable
+                            onDragStart={() => setTbDraggingPaletteKind(block.kind)}
+                            onDragEnd={() => setTbDraggingPaletteKind(null)}
+                            onClick={() => tbAddBlock(block.kind)}
+                            title={block.description}
+                          >
+                            <span className="material-symbols-outlined">{block.icon}</span>
+                            <div>
+                              <strong>{block.label}</strong>
+                              <p>{block.description}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div
+                      className="card tb-canvas"
+                      onDragOver={(e) => { e.preventDefault(); }}
+                      onDrop={() => {
+                        if (tbDraggingPaletteKind) tbAddBlock(tbDraggingPaletteKind);
+                        setTbDraggingPaletteKind(null);
+                      }}
+                    >
+                      <div className="tb-head-row">
+                        <h3>{mi('view_agenda')} Canvas</h3>
+                        <div className="form-row">
+                          <button className="btn-secondary btn-sm" onClick={tbExportCanvasLayout}>{mi('download')} Export layout</button>
+                          <label className="btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
+                            {mi('upload_file')} Import layout
+                            <input type="file" accept=".json" style={{ display: 'none' }} onChange={tbImportCanvasLayout} />
+                          </label>
+                        </div>
+                      </div>
+
+                      {tbCanvasBlocks.length === 0 && (
+                        <p className="empty">{mi('move_down')} Trascina un blocco qui o usa Auto-genera.</p>
+                      )}
+                      <div className="tb-canvas-list">
+                        {tbCanvasBlocks.map((b) => {
+                          const lib = TB_BLOCK_LIBRARY.find(x => x.kind === b.kind);
+                          const selected = tbSelectedBlockId === b.id;
+                          const depth = b.parentId ? 1 : 0;
+                          return (
+                            <button
+                              key={b.id}
+                              className={`tb-canvas-block ${selected ? 'active' : ''}`}
+                              style={{ marginLeft: depth * 24 }}
+                              draggable
+                              onDragStart={() => setTbDraggingBlockId(b.id)}
+                              onDragEnd={() => setTbDraggingBlockId(null)}
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={() => {
+                                if (tbDraggingPaletteKind) tbAddBlock(tbDraggingPaletteKind, b.id);
+                                if (tbDraggingBlockId) tbMoveBlock(tbDraggingBlockId, b.id);
+                                setTbDraggingPaletteKind(null);
+                                setTbDraggingBlockId(null);
+                              }}
+                              onClick={() => setTbSelectedBlockId(b.id)}
+                            >
+                              <span className="material-symbols-outlined">{lib?.icon || 'widgets'}</span>
+                              <div className="tb-canvas-meta">
+                                <strong>{b.title}</strong>
+                                <p>{b.kind} {b.parentId ? '· nested' : ''}</p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="card tb-panel">
+                      <h3>{mi('tune')} Inspector</h3>
+                      {!tbSelectedBlockId && <p className="muted">Seleziona un blocco dal canvas.</p>}
+                      {tbSelectedBlockId && (() => {
+                        const block = tbCanvasBlocks.find(b => b.id === tbSelectedBlockId);
+                        if (!block) return <p className="muted">Blocco non trovato.</p>;
+                        const parentOptions = tbCanvasBlocks.filter(b => b.id !== block.id);
+                        return (
+                          <div className="tb-inspector">
+                            <div className="form-group">
+                              <label>Titolo blocco</label>
+                              <input value={block.title} onChange={e => tbUpdateBlock(block.id, { title: e.target.value })} />
+                            </div>
+                            <div className="form-group">
+                              <label>Parent block</label>
+                              <select value={block.parentId || ''} onChange={e => tbUpdateBlock(block.id, { parentId: e.target.value || null })}>
+                                <option value="">(root)</option>
+                                {parentOptions.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                              </select>
+                            </div>
+                            {Object.entries(block.settings).map(([k, v]) => (
+                              <div key={k} className="form-group">
+                                <label>{k}</label>
+                                <input value={v} onChange={e => tbUpdateBlockSetting(block.id, k, e.target.value)} />
+                              </div>
+                            ))}
+                            <div className="form-row">
+                              <button className="btn-secondary btn-sm" onClick={() => tbDuplicateBlock(block.id)}>{mi('content_copy')} Duplica</button>
+                              <button className="btn-danger btn-sm" onClick={() => tbDeleteBlock(block.id)}>{mi('delete')} Elimina</button>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      <h3 className="mt-16">{mi('account_tree')} Tree</h3>
+                      <div className="tb-tree">
+                        {tbCanvasBlocks.map(b => (
+                          <button key={`tree-${b.id}`} className={`tb-tree-row ${tbSelectedBlockId === b.id ? 'active' : ''}`} onClick={() => setTbSelectedBlockId(b.id)}>
+                            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{(TB_BLOCK_LIBRARY.find(x => x.kind === b.kind)?.icon) || 'widgets'}</span>
+                            <span>{b.title}</span>
+                            {b.parentId && <span className="tb-tree-nested">nested</span>}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="card">
                     <h3>{mi('package_2')} Export template pack</h3>
-                    <p className="muted mb-12">Schermate selezionate: <strong>{tbSelectedScreens.length}</strong></p>
+                    <p className="muted mb-12">
+                      Schermate selezionate: <strong>{tbSelectedScreens.length}</strong> ·
+                      Blocchi canvas: <strong>{tbCanvasBlocks.length}</strong>
+                    </p>
                     <div className="form-row">
                       <button className="btn-primary" onClick={exportTemplateBlueprintJson}>{mi('download')} Esporta JSON</button>
                       <button className="btn-secondary" onClick={copyTemplateBlueprintMarkdown}>{mi('content_copy')} Copia blueprint markdown</button>
@@ -5740,6 +6041,7 @@ function App() {
 
           {/* ═══════ UPDATES ═══════ */}
           {view === 'updates' && (() => {
+            const releaseBodyText = formatReleaseBody(updateInfo?.body);
             const doCheck = async () => {
               if (!api) return;
               setUpdateChecking(true);
@@ -5862,9 +6164,9 @@ function App() {
                           {updateInfo.publishedAt && <p style={{ margin: '2px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Pubblicata il {new Date(updateInfo.publishedAt).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })}</p>}
                         </div>
                       </div>
-                      {updateInfo.body && (
+                      {releaseBodyText && (
                         <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontSize: '0.9rem', lineHeight: 1.6, maxHeight: 300, overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
-                          {updateInfo.body}
+                          {releaseBodyText}
                         </div>
                       )}
                       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
