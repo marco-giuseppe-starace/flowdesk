@@ -1,6 +1,9 @@
 const { app, BrowserWindow, BrowserView, ipcMain, Notification, Menu, shell, dialog } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
+const os = require('node:os');
+const dns = require('node:dns').promises;
+const { spawn } = require('node:child_process');
 const { initDb, closeDb, getDbPath, repo } = require('./db.cjs');
 const { parseMsapp, diffApps } = require('./msapp-parser.cjs');
 const msal = require('@azure/msal-node');
@@ -444,6 +447,206 @@ function configureStableUserDataPath() {
   } catch (err) {
     console.warn('[FlowDesk] Impossibile impostare un percorso userData stabile:', err?.message || err);
   }
+}
+
+function runCommand(command, args = [], timeoutMs = 15000) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    let timedOut = false;
+
+    const timer = setTimeout(() => {
+      timedOut = true;
+      try { child.kill(); } catch {}
+    }, timeoutMs);
+
+    child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+    child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+    child.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      if (timedOut) {
+        reject(new Error(`${command} timeout`));
+        return;
+      }
+      resolve({ code: code ?? 1, stdout, stderr });
+    });
+  });
+}
+
+function ipv4ToInt(ip) {
+  const parts = String(ip).split('.').map((n) => Number(n));
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return null;
+  return (((parts[0] << 24) >>> 0) + ((parts[1] << 16) >>> 0) + ((parts[2] << 8) >>> 0) + parts[3]) >>> 0;
+}
+
+function intToIpv4(int) {
+  return [
+    (int >>> 24) & 255,
+    (int >>> 16) & 255,
+    (int >>> 8) & 255,
+    int & 255,
+  ].join('.');
+}
+
+function cidrFromAddressAndMask(address, netmask) {
+  const addrInt = ipv4ToInt(address);
+  const maskInt = ipv4ToInt(netmask);
+  if (addrInt == null || maskInt == null) return null;
+  const networkInt = (addrInt & maskInt) >>> 0;
+  const bits = maskInt.toString(2).replace(/0/g, '').length;
+  return `${intToIpv4(networkInt)}/${bits}`;
+}
+
+function listLocalScanNetworks() {
+  const ifaces = os.networkInterfaces();
+  const out = [];
+  for (const [name, entries] of Object.entries(ifaces)) {
+    for (const item of entries || []) {
+      if (!item || item.internal || item.family !== 'IPv4') continue;
+      if (!item.address || !item.netmask) continue;
+      if (item.address.startsWith('169.254.')) continue;
+      const cidr = cidrFromAddressAndMask(item.address, item.netmask);
+      if (!cidr) continue;
+      out.push({
+        name,
+        address: item.address,
+        netmask: item.netmask,
+        cidr,
+      });
+    }
+  }
+  return out;
+}
+
+function hostsFromCidr(cidr) {
+  const m = String(cidr || '').trim().match(/^(\d{1,3}(?:\.\d{1,3}){3})\/(\d{1,2})$/);
+  if (!m) return [];
+  const baseInt = ipv4ToInt(m[1]);
+  const prefix = Number(m[2]);
+  if (baseInt == null || prefix < 1 || prefix > 30) return [];
+
+  const hostCount = 2 ** (32 - prefix);
+  if (hostCount > 1024) return [];
+
+  const netmask = (0xffffffff << (32 - prefix)) >>> 0;
+  const network = baseInt & netmask;
+  const first = network + 1;
+  const last = network + hostCount - 2;
+  const hosts = [];
+  for (let i = first; i <= last; i += 1) hosts.push(intToIpv4(i >>> 0));
+  return hosts;
+}
+
+async function pingHost(ip) {
+  const args = process.platform === 'win32'
+    ? ['-n', '1', '-w', '260', ip]
+    : ['-c', '1', '-W', '1', ip];
+  try {
+    const res = await runCommand('ping', args, 3500);
+    return res.code === 0;
+  } catch {
+    return false;
+  }
+}
+
+async function poolMap(items, worker, concurrency = 32) {
+  const results = new Array(items.length);
+  let idx = 0;
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (idx < items.length) {
+      const current = idx;
+      idx += 1;
+      try {
+        results[current] = await worker(items[current], current);
+      } catch {
+        results[current] = null;
+      }
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+function parseArpTable(raw) {
+  const map = new Map();
+  const re = /^\s*(\d{1,3}(?:\.\d{1,3}){3})\s+([0-9a-f:-]{11,})\s+(\w+)/i;
+  for (const line of String(raw || '').split(/\r?\n/)) {
+    const m = line.match(re);
+    if (!m) continue;
+    map.set(m[1], {
+      mac: m[2].replace(/-/g, ':').toUpperCase(),
+      arpType: m[3].toLowerCase(),
+    });
+  }
+  return map;
+}
+
+async function readArpTable() {
+  try {
+    const res = await runCommand('arp', ['-a'], 8000);
+    if (res.code !== 0) return new Map();
+    return parseArpTable(res.stdout);
+  } catch {
+    return new Map();
+  }
+}
+
+async function reverseLookup(ip) {
+  try {
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('dns timeout')), 600));
+    const names = await Promise.race([dns.reverse(ip), timeout]);
+    if (!Array.isArray(names) || names.length === 0) return null;
+    return String(names[0]);
+  } catch {
+    return null;
+  }
+}
+
+async function scanLocalNetwork(cidrInput) {
+  const available = listLocalScanNetworks();
+  if (available.length === 0) return { ok: false, error: 'Nessuna interfaccia IPv4 locale trovata.' };
+
+  const selectedCidr = String(cidrInput || '').trim() || available[0].cidr;
+  const hosts = hostsFromCidr(selectedCidr);
+  if (hosts.length === 0) {
+    return { ok: false, error: 'Intervallo CIDR non valido o troppo ampio (max /22).' };
+  }
+
+  const aliveFlags = await poolMap(hosts, (ip) => pingHost(ip), 32);
+  const aliveIps = hosts.filter((_, i) => Boolean(aliveFlags[i]));
+
+  const arpMap = await readArpTable();
+  const names = await poolMap(aliveIps, (ip) => reverseLookup(ip), 12);
+
+  const devices = aliveIps.map((ip, i) => {
+    const arp = arpMap.get(ip) || {};
+    return {
+      ip,
+      hostname: names[i] || '',
+      mac: arp.mac || '',
+      source: arp.arpType || 'ping',
+    };
+  });
+
+  devices.sort((a, b) => {
+    const ai = ipv4ToInt(a.ip) || 0;
+    const bi = ipv4ToInt(b.ip) || 0;
+    return ai - bi;
+  });
+
+  return {
+    ok: true,
+    cidr: selectedCidr,
+    scannedHosts: hosts.length,
+    onlineHosts: devices.length,
+    scannedAt: new Date().toISOString(),
+    devices,
+  };
 }
 
 /* Single internal hub browser with tabs (AI + M365) */
@@ -1033,6 +1236,8 @@ function registerIpcHandlers() {
   ipcMain.handle('db:getPath', () => getDbPath());
   ipcMain.handle('db:getFolder', () => path.dirname(getDbPath()));
   ipcMain.handle('db:existedAtStartup', () => dbExistedAtStartup);
+  ipcMain.handle('network:listInterfaces', () => listLocalScanNetworks());
+  ipcMain.handle('network:scan', async (_, cidr) => scanLocalNetwork(cidr));
 
   /* App info */
   ipcMain.handle('app:getVersion', () => app.getVersion());

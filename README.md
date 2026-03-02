@@ -7,38 +7,45 @@
 
 Desktop app offline-first per produttivita su Microsoft Power Platform.
 
-- Versione corrente: `0.7.0`
+- Versione corrente: `0.9.2`
 - Stack: Electron + React + TypeScript + SQLite (`better-sqlite3`)
-- Target: Windows (installer NSIS `.exe`)
+- Target: Windows (`Setup` + `Portable`)
 
 ## Cosa fa
+
 FlowDesk unifica in una sola app:
 
-- pianificazione giornaliera (obiettivi, task, backlog)
-- tracking lavoro (timer sessioni, pomodoro, changelog)
-- knowledge base (note, snippet, bookmark, learning)
-- gestione team/progetto (progetti, ambienti, contatti, bug, checklist)
-- analytics/report (storico, report giornaliero, export PDF)
-- Power Apps workflow (Analyzer `.msapp` + FDHub locale)
-- hub web interni (AI Hub e Microsoft 365 Hub a tab)
-- SharePoint via Microsoft Graph (liste e documenti)
+- pianificazione giornaliera (dashboard, obiettivi, task Kanban, backlog)
+- tracking lavoro (timer sessioni, pomodoro, registro modifiche)
+- knowledge base (note, snippets, link utili, formazione)
+- gestione team/progetto (progetti, ambienti, contatti, bug tracker, checklist)
+- analisi e report (storico, report giornaliero, export PDF)
+- workflow Power Apps (`App Analyzer` + `FDHub`)
+- hub web interni (`AI Hub` e `M365 Hub` a tab)
+- integrazione SharePoint via Microsoft Graph (liste e documenti)
+- inventario rete locale (`Asset Scanner`)
+- update checker e auto-update (quando supportato)
 
-## Novita v0.7.0
-- Auto-update in app integrato (`electron-updater`)
-- Sezione Aggiornamenti con stato live: check, download progress, installa al riavvio
-- Pulsanti update in-app:
-  - `Scarica aggiornamento in app`
-  - `Riavvia e installa ora`
-- Fallback automatico alla release GitHub se l'update OTA non e disponibile
-- Migliorie UI modal reset (spaziatura azioni)
+## Novita principali in v0.9.x
 
-## Installazione rapida
+- packaging Windows doppio: installer + portable
+- update checker con stato live e azioni in-app
+- AI Hub e M365 Hub con finestra tab condivisa
+- SharePoint hub con login Microsoft e operazioni su liste/documenti
+- Asset Scanner LAN (ping + ARP) su subnet locale selezionata
+
+## Installazione
+
 ### Utente finale
+
 1. Vai su [Releases](https://github.com/marco-giuseppe-starace/flowdesk/releases)
-2. Scarica `FlowDesk Setup <version>.exe`
-3. Esegui installer
+2. Scarica uno degli artefatti:
+- `FlowDesk-Setup-<version>.exe`
+- `FlowDesk-Portable-<version>.exe`
+3. Avvia il file scaricato
 
 ### Da sorgente
+
 ```bash
 git clone https://github.com/marco-giuseppe-starace/flowdesk.git
 cd flowdesk
@@ -47,133 +54,114 @@ npm run dev
 ```
 
 ## Script
+
 - `npm run dev`: Vite + Electron in sviluppo
 - `npm run build`: build frontend produzione
-- `npm run build:app`: build completa + installer Windows
+- `npm run build:app`: build completa + pacchetti Windows
 - `npm start`: avvio desktop produzione
 - `npm run lint`: linting
 
-## Prima configurazione database
+## Database
+
 Al primo avvio FlowDesk chiede dove salvare `flowdesk.db`:
+
 - cartella custom
 - OneDrive (`OneDrive/FlowDesk`)
-- path predefinito app
+- percorso predefinito app
 
-Se il config si perde, tenta il recupero automatico del DB esistente.
+Se il config viene perso, l'app tenta il recupero automatico del database esistente.
 
 ## Moduli principali
+
 ### Pianificazione
+
 - Dashboard KPI
 - Obiettivi giornalieri
 - Task Kanban (Todo/Doing/Done)
 - Backlog
 
 ### Esecuzione
+
 - Timer sessioni
 - Pomodoro
 - Registro modifiche
-- Bug Tracker
+- Bug tracker
 - Checklist
 
 ### Conoscenza
+
 - Note
-- Snippet
+- Snippets
 - Link utili
 - Formazione
 
 ### Analisi
+
 - App Impact
-- Power Apps Analyzer
+- App Analyzer (`.msapp`)
 - FDHub
 - AI Hub
 - M365 Hub
 - SharePoint
+- Asset Scanner
 
 ### Revisione e utility
+
 - Retrospettive
 - Storico
 - Report
 - Ricerca globale
-- Cestino
+- Cestino (soft delete)
 - Aggiornamenti
 - Guida integrata
 
-## AI Hub e M365 Hub
-Entrambi usano browser interno a tab singola finestra (no caos multi-finestra).
+## Auto-update
 
-### AI Hub
-Provider pronti: ChatGPT, Copilot, Gemini, Claude, Perplexity, Grok, Mistral, Meta AI, Poe, You.com.
-
-### Microsoft 365 Hub
-Accesso rapido a app Microsoft 365 in tab interni + apertura esterna.
-
-## SharePoint
-Supporto Graph API con login Microsoft:
-- config tenant/client
-- navigazione siti/liste
-- CRUD item lista
-- document library (upload/download/cartelle)
-
-## Auto-update: come funziona
 FlowDesk usa update OTA da GitHub Releases.
 
-Per ogni release pubblica devi allegare sempre:
-1. `FlowDesk Setup <version>.exe`
-2. `FlowDesk Setup <version>.exe.blockmap`
+Per release setup con update in-app, includere:
+
+1. `FlowDesk-Setup-<version>.exe`
+2. `FlowDesk-Setup-<version>.exe.blockmap`
 3. `latest.yml`
 
-Se manca `latest.yml`, l'app mostra errore di verifica update (404).
+Note:
 
-## Build release corretta
+- in modalita `portable` l'auto-update e disabilitato per design
+- in sviluppo (`dev`) l'auto-update e disabilitato
+
+## Build release
+
 ```bash
 npm run build:app
 ```
+
 Output in `release/`:
-- installer `.exe`
-- `.blockmap`
-- `latest.yml`
+
+- `FlowDesk-Setup-<version>.exe`
+- `FlowDesk-Setup-<version>.exe.blockmap`
+- `FlowDesk-Portable-<version>.exe`
+- `win-unpacked/`
 
 ## Architettura tecnica
+
 - `src/App.tsx`: UI e logica renderer
-- `electron/preload.cjs`: API sicura `window.flowdesk`
-- `electron/main.cjs`: IPC, menu, filesystem, auto-update, browser hub
+- `electron/preload.cjs`: API sicura esposta in `window.flowdesk`
+- `electron/main.cjs`: IPC, menu, filesystem, auto-update, hub browser, scanner rete
 - `electron/db.cjs`: schema SQLite + CRUD + migrazioni
 - `electron/msapp-parser.cjs`: parser/analyzer `.msapp`
 
 Flusso:
 `React -> preload (ipcRenderer) -> main (ipcMain) -> db/file system -> ritorno al renderer`
 
-## Struttura progetto
-```text
-flowdesk/
-  electron/
-    main.cjs
-    preload.cjs
-    db.cjs
-    msapp-parser.cjs
-  src/
-    App.tsx
-    App.css
-    main.tsx
-  build/
-    icon.ico
-  release/
-  docs/
-  scripts/
-  package.json
-```
-
-## Scorciatoie principali
-- `Ctrl+K`: Command Palette
-- `Ctrl+D`: Toggle dark mode
-- `F1`: Guida
-- `Ctrl+1..5`: viste rapide principali
-
 ## Sicurezza
+
 - `contextIsolation: true`
 - `nodeIntegration: false` nel renderer
-- API esposte solo da preload
-- validazioni path su apertura allegati
+- API esposte solo via preload
+- validazione path per apertura allegati
+- scanner rete solo su subnet scelta manualmente (usare solo su reti autorizzate)
 
 ## Licenza
+
 MIT - vedi [LICENSE](LICENSE)

@@ -177,6 +177,8 @@ contextBridge.exposeInMainWorld('flowdesk', {
   getDbPath: () => ipcRenderer.invoke('db:getPath'),
   getDbFolder: () => ipcRenderer.invoke('db:getFolder'),
   dbExistedAtStartup: () => ipcRenderer.invoke('db:existedAtStartup'),
+  listNetworkInterfaces: () => ipcRenderer.invoke('network:listInterfaces'),
+  scanNetworkAssets: (cidr) => ipcRenderer.invoke('network:scan', cidr),
   changeDbFolder: () => ipcRenderer.invoke('db:changeFolder'),
   migrateToOneDrive: () => ipcRenderer.invoke('db:migrateOneDrive'),
   exportDb: () => ipcRenderer.invoke('db:export'),

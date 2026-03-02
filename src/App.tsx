@@ -17,11 +17,22 @@ type EnvStatus = 'Attivo' | 'Inattivo' | 'Manutenzione';
 type BugSeverity = 'Critical' | 'High' | 'Medium' | 'Low';
 type BugStatus = 'Aperto' | 'In corso' | 'Risolto' | 'Chiuso';
 type LearningCategory = 'Corso' | 'Certificazione' | 'Articolo' | 'Video' | 'Libro' | 'Altro';
-type ViewName = 'dashboard' | 'tasks' | 'timer' | 'changes' | 'notes' | 'goals' | 'projects' | 'search' | 'history' | 'report' | 'snippets' | 'bookmarks' | 'backlog' | 'guide' | 'contacts' | 'environments' | 'retros' | 'bugs' | 'learning' | 'checklists' | 'appimpact' | 'analyzer' | 'templatebuilder' | 'fdhub' | 'aihub' | 'm365hub' | 'sharepoint' | 'updates' | 'trash';
+type ViewName = 'dashboard' | 'tasks' | 'timer' | 'changes' | 'notes' | 'goals' | 'projects' | 'search' | 'history' | 'report' | 'snippets' | 'bookmarks' | 'backlog' | 'guide' | 'contacts' | 'environments' | 'retros' | 'bugs' | 'learning' | 'checklists' | 'appimpact' | 'analyzer' | 'templatebuilder' | 'fdhub' | 'aihub' | 'm365hub' | 'sharepoint' | 'assetscanner' | 'updates' | 'trash';
 type RecurrenceType = 'daily' | 'weekly' | 'monthly';
 type TrashItem = { id: number; entityType: string; title: string; deletedAt: string };
 type ToastType = 'success' | 'error' | 'info';
 type Toast = { id: number; type: ToastType; message: string };
+type NetworkInterfaceInfo = { name: string; address: string; netmask: string; cidr: string };
+type NetworkAsset = { ip: string; hostname?: string; mac?: string; source?: string };
+type NetworkScanResult = {
+  ok: boolean;
+  error?: string;
+  cidr?: string;
+  scannedHosts?: number;
+  onlineHosts?: number;
+  scannedAt?: string;
+  devices?: NetworkAsset[];
+};
 
 type UpdateInfo = {
   upToDate: boolean;
@@ -292,6 +303,8 @@ type FlowdeskApi = {
   hubListTabs: () => Promise<{ tabs: HubTab[]; activeTabId: string | null }>;
   hubFocusWindow: () => Promise<{ ok: boolean }>;
   dbExistedAtStartup: () => Promise<boolean>;
+  listNetworkInterfaces: () => Promise<NetworkInterfaceInfo[]>;
+  scanNetworkAssets: (cidr?: string) => Promise<NetworkScanResult>;
   /* Batch tags */
   getAllTaskTags: (taskIds: number[]) => Promise<Record<number, Tag[]>>;
   /* Recurring tasks */
@@ -353,6 +366,7 @@ const NAV: { id: ViewName; icon: string; label: string }[] = [
   { id: 'aihub', icon: 'smart_toy', label: 'AI Hub' },
   { id: 'm365hub', icon: 'apartment', label: 'M365 Hub' },
   { id: 'sharepoint', icon: 'share', label: 'SharePoint' },
+  { id: 'assetscanner', icon: 'lan', label: 'Asset Scanner' },
   // ── Revisione ──
   { id: 'retros', icon: 'psychology', label: 'Retrospettive' },
   { id: 'history', icon: 'calendar_month', label: 'Storico' },
@@ -759,6 +773,10 @@ function App() {
   const [m365AppId, setM365AppId] = useState(M365_APPS[0].id);
   const [hubTabs, setHubTabs] = useState<HubTab[]>([]);
   const [hubActiveTabId, setHubActiveTabId] = useState<string | null>(null);
+  const [networkInterfaces, setNetworkInterfaces] = useState<NetworkInterfaceInfo[]>([]);
+  const [selectedNetworkCidr, setSelectedNetworkCidr] = useState('');
+  const [assetScanBusy, setAssetScanBusy] = useState(false);
+  const [assetScanResult, setAssetScanResult] = useState<NetworkScanResult | null>(null);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
@@ -1041,6 +1059,11 @@ function App() {
     const { start, end } = monthRange(histYear, histMonth);
     void api.getActiveDays(start, end).then(setActiveDays);
   }, [view, histYear, histMonth, api]);
+
+  useEffect(() => {
+    if (view !== 'assetscanner' || !api) return;
+    void loadNetworkInterfaces();
+  }, [view, api]);
 
   // Load history day summary
   useEffect(() => {
@@ -1573,6 +1596,35 @@ function App() {
   async function closeHubTab(tabId: string) {
     if (!api) return;
     await api.hubCloseTab(tabId);
+  }
+
+  async function loadNetworkInterfaces() {
+    if (!api) return;
+    try {
+      const nets = await api.listNetworkInterfaces();
+      setNetworkInterfaces(nets || []);
+      if (nets?.length && !selectedNetworkCidr) setSelectedNetworkCidr(nets[0].cidr);
+    } catch {
+      showToast('error', 'Impossibile leggere le interfacce di rete locali.');
+    }
+  }
+
+  async function runAssetScan() {
+    if (!api) return;
+    const cidr = selectedNetworkCidr.trim();
+    if (!cidr) {
+      showToast('error', 'Seleziona una rete CIDR valida.');
+      return;
+    }
+    setAssetScanBusy(true);
+    try {
+      const res = await api.scanNetworkAssets(cidr);
+      setAssetScanResult(res);
+      if (!res.ok) showToast('error', res.error || 'Scansione non riuscita.');
+      else showToast('success', `Scansione completata: ${res.onlineHosts || 0} dispositivi online.`);
+    } finally {
+      setAssetScanBusy(false);
+    }
   }
 
   function tbAutoSelectScreens(parsed: MsappParsed) {
@@ -6034,6 +6086,81 @@ function App() {
                     <p>{p.description}</p>
                   </button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* ═══════ ASSET SCANNER ═══════ */}
+          {view === 'assetscanner' && (
+            <div className="view">
+              <div className="view-header">
+                <div>
+                  <h2 className="view-title">{mi('lan')} Asset Scanner</h2>
+                  <p className="view-sub">Inventario dispositivi attivi nella tua rete locale (solo subnet selezionata).</p>
+                </div>
+              </div>
+
+              <div className="card mb-20">
+                <div className="form-row ai-c">
+                  <div className="form-group fg-2">
+                    <label>Rete locale (CIDR)</label>
+                    <select value={selectedNetworkCidr} onChange={(e) => setSelectedNetworkCidr(e.target.value)}>
+                      {networkInterfaces.length === 0 && <option value="">Nessuna interfaccia trovata</option>}
+                      {networkInterfaces.map((n) => (
+                        <option key={`${n.name}-${n.cidr}`} value={n.cidr}>
+                          {n.name} - {n.address} ({n.cidr})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button className="btn-secondary" onClick={loadNetworkInterfaces} disabled={assetScanBusy}>{mi('refresh')} Rileva reti</button>
+                  <button className="btn-primary" onClick={runAssetScan} disabled={assetScanBusy || !selectedNetworkCidr}>
+                    {assetScanBusy ? <>{mi('hourglass_top')} Scansione...</> : <>{mi('search')} Scansiona</>}
+                  </button>
+                </div>
+                <p className="empty" style={{ marginTop: 10 }}>
+                  Usa solo su reti autorizzate. La scansione esegue ping e ARP nella subnet selezionata.
+                </p>
+              </div>
+
+              <div className="card">
+                <div className="view-header" style={{ marginBottom: 12 }}>
+                  <h3 style={{ margin: 0 }}>Dispositivi rilevati</h3>
+                  <span className="badge">
+                    {(assetScanResult?.onlineHosts ?? 0)} online / {(assetScanResult?.scannedHosts ?? 0)} host
+                  </span>
+                </div>
+                {assetScanResult?.error && <p className="empty" style={{ color: '#b91c1c' }}>{assetScanResult.error}</p>}
+                {!assetScanResult?.devices?.length && !assetScanResult?.error && <p className="empty">Nessun risultato. Avvia una scansione.</p>}
+                {assetScanResult?.devices && assetScanResult.devices.length > 0 && (
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>IP</th>
+                          <th>Hostname</th>
+                          <th>MAC</th>
+                          <th>Fonte</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {assetScanResult.devices.map((d) => (
+                          <tr key={d.ip}>
+                            <td><strong>{d.ip}</strong></td>
+                            <td>{d.hostname || '-'}</td>
+                            <td>{d.mac || '-'}</td>
+                            <td>{d.source || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {assetScanResult?.scannedAt && (
+                  <p className="empty" style={{ marginTop: 10 }}>
+                    Ultima scansione: {new Date(assetScanResult.scannedAt).toLocaleString('it-IT')} ({assetScanResult.cidr})
+                  </p>
+                )}
               </div>
             </div>
           )}
