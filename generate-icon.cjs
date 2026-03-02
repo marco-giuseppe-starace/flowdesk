@@ -1,195 +1,239 @@
 // Generate FlowDesk icon as ICO + PNG (no external deps)
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 
-// Create a 256x256 RGBA bitmap for the FlowDesk icon
 const SIZE = 256;
 const buf = Buffer.alloc(SIZE * SIZE * 4);
 
+function clamp(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function idx(x, y) {
+  return (y * SIZE + x) * 4;
+}
+
 function setPixel(x, y, r, g, b, a) {
-  if (x < 0 || x >= SIZE || y < 0 || y >= SIZE) return;
-  const i = (y * SIZE + x) * 4;
-  buf[i] = r; buf[i+1] = g; buf[i+2] = b; buf[i+3] = a;
+  if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) return;
+  const i = idx(x, y);
+  buf[i] = clamp(Math.round(r), 0, 255);
+  buf[i + 1] = clamp(Math.round(g), 0, 255);
+  buf[i + 2] = clamp(Math.round(b), 0, 255);
+  buf[i + 3] = clamp(Math.round(a), 0, 255);
 }
 
-function dist(x1, y1, x2, y2) { return Math.sqrt((x1-x2)**2 + (y1-y2)**2); }
+function blendPixel(x, y, r, g, b, a) {
+  if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) return;
+  const i = idx(x, y);
+  const sa = clamp(a, 0, 255) / 255;
+  if (sa <= 0) return;
+  const da = buf[i + 3] / 255;
+  const oa = sa + da * (1 - sa);
+  if (oa <= 0) return;
 
-function lerp(a, b, t) { return Math.round(a + (b - a) * t); }
+  const nr = (r * sa + buf[i] * da * (1 - sa)) / oa;
+  const ng = (g * sa + buf[i + 1] * da * (1 - sa)) / oa;
+  const nb = (b * sa + buf[i + 2] * da * (1 - sa)) / oa;
 
-// Draw rounded rectangle background with gradient
-for (let y = 0; y < SIZE; y++) {
-  for (let x = 0; x < SIZE; x++) {
-    const R = 48; // corner radius
-    // Check if inside rounded rect
-    let inside = true;
-    if (x < R && y < R && dist(x, y, R, R) > R) inside = false;
-    if (x > SIZE-1-R && y < R && dist(x, y, SIZE-1-R, R) > R) inside = false;
-    if (x < R && y > SIZE-1-R && dist(x, y, R, SIZE-1-R) > R) inside = false;
-    if (x > SIZE-1-R && y > SIZE-1-R && dist(x, y, SIZE-1-R, SIZE-1-R) > R) inside = false;
-    
-    if (inside) {
-      const t = (x + y) / (2 * SIZE);
-      const r = lerp(59, 29, t);   // #3b82f6 -> #1d4ed8
-      const g = lerp(130, 78, t);
-      const b = lerp(246, 216, t);
-      setPixel(x, y, r, g, b, 255);
+  buf[i] = clamp(Math.round(nr), 0, 255);
+  buf[i + 1] = clamp(Math.round(ng), 0, 255);
+  buf[i + 2] = clamp(Math.round(nb), 0, 255);
+  buf[i + 3] = clamp(Math.round(oa * 255), 0, 255);
+}
+
+function signedDistanceRoundRect(px, py, x, y, w, h, r) {
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const dx = Math.abs(px - cx) - (w / 2 - r);
+  const dy = Math.abs(py - cy) - (h / 2 - r);
+  const ox = Math.max(dx, 0);
+  const oy = Math.max(dy, 0);
+  const outside = Math.sqrt(ox * ox + oy * oy) - r;
+  const inside = Math.min(Math.max(dx, dy), 0);
+  return outside + inside;
+}
+
+function fillRoundedRectAA(x, y, w, h, r, colorFn) {
+  const minX = Math.max(0, Math.floor(x - 1));
+  const maxX = Math.min(SIZE - 1, Math.ceil(x + w + 1));
+  const minY = Math.max(0, Math.floor(y - 1));
+  const maxY = Math.min(SIZE - 1, Math.ceil(y + h + 1));
+
+  for (let py = minY; py <= maxY; py++) {
+    for (let px = minX; px <= maxX; px++) {
+      const d = signedDistanceRoundRect(px + 0.5, py + 0.5, x, y, w, h, r);
+      if (d >= 1) continue;
+      const cov = clamp(1 - d, 0, 1);
+      const c = colorFn(px, py);
+      blendPixel(px, py, c.r, c.g, c.b, c.a * cov);
     }
   }
 }
 
-// Draw "FD" text using simple bitmap font approach
-// We'll draw thick block letters
-function fillRect(rx, ry, rw, rh, r, g, b, a) {
-  for (let dy = 0; dy < rh; dy++) {
-    for (let dx = 0; dx < rw; dx++) {
-      setPixel(rx + dx, ry + dy, r, g, b, a);
+// Background squircle with deep blue -> cyan gradient
+fillRoundedRectAA(10, 10, 236, 236, 54, (x, y) => {
+  const t = clamp((x * 0.55 + y * 0.95) / (SIZE * 1.5), 0, 1);
+  return {
+    r: lerp(12, 8, t),
+    g: lerp(28, 166, t),
+    b: lerp(74, 218, t),
+    a: 255,
+  };
+});
+
+// Soft top highlight
+fillRoundedRectAA(22, 22, 212, 112, 40, (x, y) => {
+  const ty = clamp((y - 22) / 112, 0, 1);
+  return { r: 255, g: 255, b: 255, a: 44 * (1 - ty) };
+});
+
+// Inner shadow for depth
+fillRoundedRectAA(22, 22, 212, 212, 44, (x, y) => {
+  const t = clamp((x + y) / (SIZE * 1.8), 0, 1);
+  return { r: 3, g: 8, b: 20, a: 34 * t };
+});
+
+// Main "F" monogram with rounded segments
+const white = { r: 245, g: 250, b: 255, a: 255 };
+fillRoundedRectAA(64, 58, 28, 140, 14, () => white);
+fillRoundedRectAA(64, 58, 132, 28, 14, () => white);
+fillRoundedRectAA(64, 113, 102, 24, 12, () => ({ r: 245, g: 250, b: 255, a: 245 }));
+fillRoundedRectAA(64, 166, 76, 22, 11, () => ({ r: 245, g: 250, b: 255, a: 228 }));
+
+// Dynamic flow accent
+fillRoundedRectAA(148, 148, 50, 50, 25, () => ({ r: 102, g: 252, b: 241, a: 235 }));
+fillRoundedRectAA(160, 160, 26, 26, 13, () => ({ r: 9, g: 58, b: 98, a: 210 }));
+
+// Subtle outer glow
+fillRoundedRectAA(10, 10, 236, 236, 54, (x, y) => {
+  const cx = 128;
+  const cy = 128;
+  const dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
+  const t = clamp((dist - 70) / 95, 0, 1);
+  return { r: 98, g: 245, b: 255, a: 22 * (1 - t) };
+});
+
+function crc32(data) {
+  let crc = 0xffffffff;
+  const table = new Int32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
     }
+    table[n] = c;
   }
+
+  for (let i = 0; i < data.length; i++) {
+    crc = table[(crc ^ data[i]) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
 }
 
-const W = 255, A = 255; // white, full alpha
-const T = 18; // stroke thickness 
-const LH = 110; // letter height
-const LY = 70; // letter Y start
+function pngChunk(type, data) {
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(data.length, 0);
+  const typeBuf = Buffer.from(type);
+  const crcBuf = Buffer.alloc(4);
+  crcBuf.writeUInt32BE(crc32(Buffer.concat([typeBuf, data])), 0);
+  return Buffer.concat([len, typeBuf, data, crcBuf]);
+}
 
-// Letter F (x: 38 to 108)
-const FX = 38;
-fillRect(FX, LY, T, LH, W, W, W, A);         // vertical bar
-fillRect(FX, LY, 70, T, W, W, W, A);           // top horizontal
-fillRect(FX, LY + 45, 55, T, W, W, W, A);      // middle horizontal
-
-// Letter D (x: 128 to 218)
-const DX = 128;
-fillRect(DX, LY, T, LH, W, W, W, A);           // vertical bar
-fillRect(DX + T, LY, 45, T, W, W, W, A);        // top horizontal
-fillRect(DX + T, LY + LH - T, 45, T, W, W, W, A); // bottom horizontal
-fillRect(DX + 60, LY + T, T, LH - 2*T, W, W, W, A); // right vertical
-// Round the D corners with extra pixels
-fillRect(DX + 50, LY + T, T, T, W, W, W, A);
-fillRect(DX + 50, LY + LH - 2*T, T, T, W, W, W, A);
-
-// Small accent bars (top-left corner)
-fillRect(30, 30, 50, 6, W, W, W, 100);  // thin decorative line
-fillRect(30, 42, 30, 6, W, W, W, 65);   // thinner decorative line
-
-// --- Create PNG ---
 function createPng(width, height, rgba) {
-  // Minimal PNG encoder
-  function crc32(buf) {
-    let c = 0xffffffff;
-    const table = new Int32Array(256);
-    for (let n = 0; n < 256; n++) {
-      let cc = n;
-      for (let k = 0; k < 8; k++) cc = cc & 1 ? 0xedb88320 ^ (cc >>> 1) : cc >>> 1;
-      table[n] = cc;
-    }
-    for (let i = 0; i < buf.length; i++) c = table[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
-    return (c ^ 0xffffffff) >>> 0;
-  }
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 
-  function chunk(type, data) {
-    const len = Buffer.alloc(4);
-    len.writeUInt32BE(data.length);
-    const typeB = Buffer.from(type);
-    const crcData = Buffer.concat([typeB, data]);
-    const crcB = Buffer.alloc(4);
-    crcB.writeUInt32BE(crc32(crcData));
-    return Buffer.concat([len, typeB, data, crcB]);
-  }
-
-  // IHDR
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8; // bit depth
-  ihdr[9] = 6; // color type RGBA
-  ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  ihdr[10] = 0;
+  ihdr[11] = 0;
+  ihdr[12] = 0;
 
-  // IDAT - raw image data with filter byte 0 per row
-  const rawRows = [];
+  const rows = [];
   for (let y = 0; y < height; y++) {
-    rawRows.push(Buffer.from([0])); // filter none
-    rawRows.push(rgba.subarray(y * width * 4, (y + 1) * width * 4));
-  }
-  const raw = Buffer.concat(rawRows);
-  
-  // Deflate using zlib
-  const zlib = require('zlib');
-  const compressed = zlib.deflateSync(raw);
-
-  const sig = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
-  const ihdrChunk = chunk('IHDR', ihdr);
-  const idatChunk = chunk('IDAT', compressed);
-  const iendChunk = chunk('IEND', Buffer.alloc(0));
-
-  return Buffer.concat([sig, ihdrChunk, idatChunk, iendChunk]);
-}
-
-// --- Create ICO ---
-function createIco(pngs) {
-  // ICO header: 6 bytes
-  const header = Buffer.alloc(6);
-  header.writeUInt16LE(0, 0);       // reserved
-  header.writeUInt16LE(1, 2);       // type: icon
-  header.writeUInt16LE(pngs.length, 4); // count
-
-  const dirEntries = [];
-  let dataOffset = 6 + pngs.length * 16;
-  
-  for (const { size, data } of pngs) {
-    const entry = Buffer.alloc(16);
-    entry[0] = size >= 256 ? 0 : size; // width (0 = 256)
-    entry[1] = size >= 256 ? 0 : size; // height
-    entry[2] = 0; // palette
-    entry[3] = 0; // reserved
-    entry.writeUInt16LE(1, 4);  // planes
-    entry.writeUInt16LE(32, 6); // bpp
-    entry.writeUInt32LE(data.length, 8);  // size
-    entry.writeUInt32LE(dataOffset, 12);  // offset
-    dirEntries.push(entry);
-    dataOffset += data.length;
+    rows.push(Buffer.from([0]));
+    rows.push(rgba.subarray(y * width * 4, (y + 1) * width * 4));
   }
 
-  return Buffer.concat([header, ...dirEntries, ...pngs.map(p => p.data)]);
+  const compressed = zlib.deflateSync(Buffer.concat(rows), { level: 9 });
+
+  return Buffer.concat([
+    signature,
+    pngChunk('IHDR', ihdr),
+    pngChunk('IDAT', compressed),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ]);
 }
 
-// Generate multiple sizes
-function resizeRgba(src, srcSize, dstSize) {
+function resizeRgbaNearest(src, srcSize, dstSize) {
   const dst = Buffer.alloc(dstSize * dstSize * 4);
   const ratio = srcSize / dstSize;
+
   for (let y = 0; y < dstSize; y++) {
     for (let x = 0; x < dstSize; x++) {
-      const sx = Math.min(Math.floor(x * ratio), srcSize - 1);
-      const sy = Math.min(Math.floor(y * ratio), srcSize - 1);
+      const sx = Math.min(srcSize - 1, Math.floor(x * ratio));
+      const sy = Math.min(srcSize - 1, Math.floor(y * ratio));
       const si = (sy * srcSize + sx) * 4;
       const di = (y * dstSize + x) * 4;
-      dst[di] = buf[si]; dst[di+1] = buf[si+1]; dst[di+2] = buf[si+2]; dst[di+3] = buf[si+3];
+      dst[di] = src[si];
+      dst[di + 1] = src[si + 1];
+      dst[di + 2] = src[si + 2];
+      dst[di + 3] = src[si + 3];
     }
   }
+
   return dst;
 }
 
+function createIco(images) {
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(images.length, 4);
+
+  const entries = [];
+  let offset = 6 + images.length * 16;
+
+  for (const img of images) {
+    const e = Buffer.alloc(16);
+    e[0] = img.size >= 256 ? 0 : img.size;
+    e[1] = img.size >= 256 ? 0 : img.size;
+    e[2] = 0;
+    e[3] = 0;
+    e.writeUInt16LE(1, 4);
+    e.writeUInt16LE(32, 6);
+    e.writeUInt32LE(img.data.length, 8);
+    e.writeUInt32LE(offset, 12);
+    entries.push(e);
+    offset += img.data.length;
+  }
+
+  return Buffer.concat([header, ...entries, ...images.map((i) => i.data)]);
+}
+
 const sizes = [256, 128, 64, 48, 32, 16];
-const pngBuffers = sizes.map(s => {
-  const rgba = s === 256 ? buf : resizeRgba(buf, 256, s);
+const pngs = sizes.map((s) => {
+  const rgba = s === SIZE ? buf : resizeRgbaNearest(buf, SIZE, s);
   return { size: s, data: createPng(s, s, rgba) };
 });
 
-// Save icon files
 const buildDir = path.join(__dirname, 'build');
 if (!fs.existsSync(buildDir)) fs.mkdirSync(buildDir, { recursive: true });
 
-// Save 256x256 PNG
-fs.writeFileSync(path.join(buildDir, 'icon.png'), pngBuffers[0].data);
+fs.writeFileSync(path.join(buildDir, 'icon.png'), pngs[0].data);
 console.log('Created build/icon.png (256x256)');
 
-// Save ICO with all sizes
-const ico = createIco(pngBuffers);
-fs.writeFileSync(path.join(buildDir, 'icon.ico'), ico);
+fs.writeFileSync(path.join(buildDir, 'icon.ico'), createIco(pngs));
 console.log('Created build/icon.ico (multi-size)');
 
-// Also copy to public for the HTML
 fs.copyFileSync(path.join(buildDir, 'icon.png'), path.join(__dirname, 'public', 'icon.png'));
 console.log('Copied to public/icon.png');
 
-console.log('Done! Icon files generated.');
+console.log('Done! New FlowDesk icon generated.');

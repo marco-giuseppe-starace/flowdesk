@@ -349,7 +349,6 @@ const NAV: { id: ViewName; icon: string; label: string }[] = [
   // ── Analisi ──
   { id: 'appimpact', icon: 'insights', label: 'App Impact' },
   { id: 'analyzer', icon: 'analytics', label: 'App Analyzer' },
-  { id: 'templatebuilder', icon: 'architecture', label: 'Template Builder' },
   { id: 'fdhub', icon: 'hub', label: 'FDHub' },
   { id: 'aihub', icon: 'smart_toy', label: 'AI Hub' },
   { id: 'm365hub', icon: 'apartment', label: 'M365 Hub' },
