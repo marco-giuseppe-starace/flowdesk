@@ -7,7 +7,7 @@
 
 Desktop app offline-first per produttivita su Microsoft Power Platform.
 
-- Versione corrente: `0.9.2`
+- Versione corrente: `1.0.0`
 - Stack: Electron + React + TypeScript + SQLite (`better-sqlite3`)
 - Target: Windows (`Setup` + `Portable`)
 
@@ -26,7 +26,7 @@ FlowDesk unifica in una sola app:
 - inventario rete locale (`Asset Scanner`)
 - update checker e auto-update (quando supportato)
 
-## Novita principali in v0.9.x
+## Novita principali in v1.0.0
 
 - packaging Windows doppio: installer + portable
 - update checker con stato live e azioni in-app
