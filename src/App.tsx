@@ -23,13 +23,33 @@ type TrashItem = { id: number; entityType: string; title: string; deletedAt: str
 type ToastType = 'success' | 'error' | 'info';
 type Toast = { id: number; type: ToastType; message: string };
 type NetworkInterfaceInfo = { name: string; address: string; netmask: string; cidr: string };
-type NetworkAsset = { ip: string; hostname?: string; mac?: string; source?: string };
+type NetworkAsset = {
+  ip: string;
+  hostname?: string;
+  mac?: string;
+  source?: string;
+  alive?: boolean;
+  ttl?: number | null;
+  osGuess?: string;
+  responseMs?: number | null;
+  openPorts?: number[];
+};
+type NetworkScanOptions = {
+  methods: { ping: boolean; arp: boolean; dns: boolean };
+  portScan: { enabled: boolean; ports: number[]; timeoutMs: number };
+  pingTimeoutMs: number;
+  concurrency: number;
+  includeArpOnly: boolean;
+  maxHosts: number;
+};
 type NetworkScanResult = {
   ok: boolean;
   error?: string;
   cidr?: string;
   scannedHosts?: number;
   onlineHosts?: number;
+  methodsUsed?: { ping: boolean; arp: boolean; dns: boolean; portScan: boolean };
+  portsScanned?: number[];
   scannedAt?: string;
   devices?: NetworkAsset[];
 };
@@ -304,7 +324,8 @@ type FlowdeskApi = {
   hubFocusWindow: () => Promise<{ ok: boolean }>;
   dbExistedAtStartup: () => Promise<boolean>;
   listNetworkInterfaces: () => Promise<NetworkInterfaceInfo[]>;
-  scanNetworkAssets: (cidr?: string) => Promise<NetworkScanResult>;
+  scanNetworkAssets: (cidr?: string, options?: Partial<NetworkScanOptions>) => Promise<NetworkScanResult>;
+  scanNetworkAssetsPro: (payload: { cidr?: string; options?: Partial<NetworkScanOptions> }) => Promise<NetworkScanResult>;
   /* Batch tags */
   getAllTaskTags: (taskIds: number[]) => Promise<Record<number, Tag[]>>;
   /* Recurring tasks */
@@ -504,11 +525,21 @@ const WEEKDAY_SHORT = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 
 const TAG_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#22c55e', '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899', '#64748b', '#06b6d4'];
 const PROJECT_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#64748b'];
+const ASSET_SCANNER_PROFILE_KEY = 'fd-asset-scanner-profiles-v1';
+const ASSET_SCANNER_DEFAULT_PROFILE = 'Enterprise Balanced';
+const ASSET_SCANNER_DEFAULT_OPTIONS: NetworkScanOptions = {
+  methods: { ping: true, arp: true, dns: true },
+  portScan: { enabled: false, ports: [22, 80, 135, 139, 443, 445, 3389, 5985], timeoutMs: 450 },
+  pingTimeoutMs: 260,
+  concurrency: 32,
+  includeArpOnly: true,
+  maxHosts: 1024,
+};
 
 function mi(name: string) { return <span className="material-symbols-outlined">{name}</span>; }
 
-function downloadFile(content: string, filename: string) {
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+function downloadFile(content: string, filename: string, mime = 'text/csv;charset=utf-8;') {
+  const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = filename; a.click();
@@ -525,6 +556,61 @@ function formatReleaseBody(raw?: string) {
     return (doc.body?.textContent || body).replace(/\n{3,}/g, '\n\n').trim();
   } catch {
     return body.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  }
+}
+
+function parsePortList(text: string): number[] {
+  return String(text || '')
+    .split(/[,\s;]+/)
+    .map((v) => Number(v.trim()))
+    .filter((v) => Number.isInteger(v) && v >= 1 && v <= 65535)
+    .filter((v, i, arr) => arr.indexOf(v) === i)
+    .sort((a, b) => a - b);
+}
+
+function ipToSortable(ip: string): number {
+  const parts = String(ip || '').split('.').map((n) => Number(n));
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return Number.MAX_SAFE_INTEGER;
+  return ((parts[0] * 256 ** 3) + (parts[1] * 256 ** 2) + (parts[2] * 256) + parts[3]) >>> 0;
+}
+
+function mergeScannerOptions(partial?: Partial<NetworkScanOptions>): NetworkScanOptions {
+  const customPorts = Array.isArray(partial?.portScan?.ports) ? partial?.portScan?.ports : [];
+  return {
+    methods: {
+      ping: partial?.methods?.ping ?? ASSET_SCANNER_DEFAULT_OPTIONS.methods.ping,
+      arp: partial?.methods?.arp ?? ASSET_SCANNER_DEFAULT_OPTIONS.methods.arp,
+      dns: partial?.methods?.dns ?? ASSET_SCANNER_DEFAULT_OPTIONS.methods.dns,
+    },
+    portScan: {
+      enabled: partial?.portScan?.enabled ?? ASSET_SCANNER_DEFAULT_OPTIONS.portScan.enabled,
+      ports: customPorts.length > 0
+        ? customPorts
+        : ASSET_SCANNER_DEFAULT_OPTIONS.portScan.ports,
+      timeoutMs: partial?.portScan?.timeoutMs ?? ASSET_SCANNER_DEFAULT_OPTIONS.portScan.timeoutMs,
+    },
+    pingTimeoutMs: partial?.pingTimeoutMs ?? ASSET_SCANNER_DEFAULT_OPTIONS.pingTimeoutMs,
+    concurrency: partial?.concurrency ?? ASSET_SCANNER_DEFAULT_OPTIONS.concurrency,
+    includeArpOnly: partial?.includeArpOnly ?? ASSET_SCANNER_DEFAULT_OPTIONS.includeArpOnly,
+    maxHosts: partial?.maxHosts ?? ASSET_SCANNER_DEFAULT_OPTIONS.maxHosts,
+  };
+}
+
+function safeParseScannerProfiles(raw: string | null): Record<string, NetworkScanOptions> {
+  if (!raw) return { [ASSET_SCANNER_DEFAULT_PROFILE]: ASSET_SCANNER_DEFAULT_OPTIONS };
+  try {
+    const obj = JSON.parse(raw);
+    if (!obj || typeof obj !== 'object') throw new Error('invalid');
+    const out: Record<string, NetworkScanOptions> = {};
+    for (const [name, val] of Object.entries(obj as Record<string, Partial<NetworkScanOptions>>)) {
+      if (!String(name).trim()) continue;
+      out[name] = mergeScannerOptions(val);
+    }
+    if (Object.keys(out).length === 0) out[ASSET_SCANNER_DEFAULT_PROFILE] = ASSET_SCANNER_DEFAULT_OPTIONS;
+    if (!out[ASSET_SCANNER_DEFAULT_PROFILE]) out[ASSET_SCANNER_DEFAULT_PROFILE] = ASSET_SCANNER_DEFAULT_OPTIONS;
+    return out;
+  } catch {
+    return { [ASSET_SCANNER_DEFAULT_PROFILE]: ASSET_SCANNER_DEFAULT_OPTIONS };
   }
 }
 
@@ -777,6 +863,16 @@ function App() {
   const [selectedNetworkCidr, setSelectedNetworkCidr] = useState('');
   const [assetScanBusy, setAssetScanBusy] = useState(false);
   const [assetScanResult, setAssetScanResult] = useState<NetworkScanResult | null>(null);
+  const [assetScanOptions, setAssetScanOptions] = useState<NetworkScanOptions>(ASSET_SCANNER_DEFAULT_OPTIONS);
+  const [assetPortList, setAssetPortList] = useState(ASSET_SCANNER_DEFAULT_OPTIONS.portScan.ports.join(','));
+  const [assetSearch, setAssetSearch] = useState('');
+  const [assetOnlyOpenPorts, setAssetOnlyOpenPorts] = useState(false);
+  const [assetSortBy, setAssetSortBy] = useState<'ip' | 'hostname' | 'responseMs'>('ip');
+  const [assetProfiles, setAssetProfiles] = useState<Record<string, NetworkScanOptions>>(() => {
+    return safeParseScannerProfiles(localStorage.getItem(ASSET_SCANNER_PROFILE_KEY));
+  });
+  const [assetProfileName, setAssetProfileName] = useState(ASSET_SCANNER_DEFAULT_PROFILE);
+  const [assetProfileDraftName, setAssetProfileDraftName] = useState('');
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
@@ -896,6 +992,23 @@ function App() {
   const tasksDone = useMemo(() => tasks.filter(t => t.status === 'Done').length, [tasks]);
   const totalTracked = useMemo(() => sessions.reduce((a, s) => a + (s.durationMinutes || 0), 0), [sessions]);
   const goalsDone = useMemo(() => goals.filter(g => g.isDone).length, [goals]);
+  const assetVisibleDevices = useMemo(() => {
+    const src = assetScanResult?.devices || [];
+    const q = assetSearch.trim().toLowerCase();
+    const filtered = src.filter((d) => {
+      if (assetOnlyOpenPorts && (!d.openPorts || d.openPorts.length === 0)) return false;
+      if (!q) return true;
+      const hay = `${d.ip} ${d.hostname || ''} ${d.mac || ''} ${d.osGuess || ''} ${(d.openPorts || []).join(' ')}`.toLowerCase();
+      return hay.includes(q);
+    });
+    const sorted = [...filtered];
+    sorted.sort((a, b) => {
+      if (assetSortBy === 'hostname') return (a.hostname || '').localeCompare(b.hostname || '', 'it');
+      if (assetSortBy === 'responseMs') return (a.responseMs ?? 999999) - (b.responseMs ?? 999999);
+      return ipToSortable(a.ip) - ipToSortable(b.ip);
+    });
+    return sorted;
+  }, [assetScanResult, assetSearch, assetOnlyOpenPorts, assetSortBy]);
 
   /* ══════════════════ Toast helper ══════════════════ */
 
@@ -1064,6 +1177,16 @@ function App() {
     if (view !== 'assetscanner' || !api) return;
     void loadNetworkInterfaces();
   }, [view, api]);
+
+  useEffect(() => {
+    if (!assetProfiles[assetProfileName]) {
+      setAssetProfileName(ASSET_SCANNER_DEFAULT_PROFILE);
+      return;
+    }
+    const active = assetProfiles[assetProfileName];
+    setAssetScanOptions(active);
+    setAssetPortList((active.portScan?.ports || []).join(','));
+  }, [assetProfileName, assetProfiles]);
 
   // Load history day summary
   useEffect(() => {
@@ -1609,6 +1732,91 @@ function App() {
     }
   }
 
+  function currentAssetScanOptions(): NetworkScanOptions {
+    const ports = parsePortList(assetPortList);
+    return {
+      ...assetScanOptions,
+      portScan: {
+        ...assetScanOptions.portScan,
+        ports: ports.length > 0 ? ports : assetScanOptions.portScan.ports,
+      },
+    };
+  }
+
+  function saveAssetProfiles(next: Record<string, NetworkScanOptions>) {
+    setAssetProfiles(next);
+    localStorage.setItem(ASSET_SCANNER_PROFILE_KEY, JSON.stringify(next));
+  }
+
+  function applyAssetProfile(name: string) {
+    const profile = assetProfiles[name];
+    if (!profile) return;
+    setAssetProfileName(name);
+    setAssetScanOptions(profile);
+    setAssetPortList((profile.portScan?.ports || []).join(','));
+  }
+
+  function saveCurrentAsProfile() {
+    const raw = assetProfileDraftName.trim();
+    if (!raw) {
+      showToast('error', 'Inserisci un nome profilo.');
+      return;
+    }
+    const normalized = mergeScannerOptions(currentAssetScanOptions());
+    const next = { ...assetProfiles, [raw]: normalized };
+    saveAssetProfiles(next);
+    setAssetProfileName(raw);
+    setAssetProfileDraftName('');
+    showToast('success', `Profilo "${raw}" salvato.`);
+  }
+
+  function deleteCurrentProfile() {
+    if (assetProfileName === ASSET_SCANNER_DEFAULT_PROFILE) {
+      showToast('info', 'Il profilo default non puo essere eliminato.');
+      return;
+    }
+    const next = { ...assetProfiles };
+    delete next[assetProfileName];
+    if (!next[ASSET_SCANNER_DEFAULT_PROFILE]) next[ASSET_SCANNER_DEFAULT_PROFILE] = ASSET_SCANNER_DEFAULT_OPTIONS;
+    saveAssetProfiles(next);
+    applyAssetProfile(ASSET_SCANNER_DEFAULT_PROFILE);
+    showToast('success', 'Profilo eliminato.');
+  }
+
+  function exportAssetCsv() {
+    const rows = assetVisibleDevices;
+    if (!rows.length) {
+      showToast('info', 'Nessun dato da esportare.');
+      return;
+    }
+    const header = ['ip', 'hostname', 'mac', 'alive', 'ttl', 'osGuess', 'responseMs', 'openPorts', 'source'];
+    const lines = rows.map((d) => [
+      d.ip,
+      d.hostname || '',
+      d.mac || '',
+      d.alive ? 'true' : 'false',
+      String(d.ttl ?? ''),
+      d.osGuess || '',
+      String(d.responseMs ?? ''),
+      (d.openPorts || []).join('|'),
+      d.source || '',
+    ]);
+    const csv = [header, ...lines]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    downloadFile(csv, `flowdesk-asset-scan-${stamp}.csv`, 'text/csv;charset=utf-8;');
+  }
+
+  function exportAssetJson() {
+    if (!assetScanResult) {
+      showToast('info', 'Nessun risultato da esportare.');
+      return;
+    }
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    downloadFile(JSON.stringify(assetScanResult, null, 2), `flowdesk-asset-scan-${stamp}.json`, 'application/json;charset=utf-8;');
+  }
+
   async function runAssetScan() {
     if (!api) return;
     const cidr = selectedNetworkCidr.trim();
@@ -1618,10 +1826,11 @@ function App() {
     }
     setAssetScanBusy(true);
     try {
-      const res = await api.scanNetworkAssets(cidr);
+      const opts = currentAssetScanOptions();
+      const res = await api.scanNetworkAssetsPro({ cidr, options: opts });
       setAssetScanResult(res);
       if (!res.ok) showToast('error', res.error || 'Scansione non riuscita.');
-      else showToast('success', `Scansione completata: ${res.onlineHosts || 0} dispositivi online.`);
+      else showToast('success', `Scansione completata: ${res.onlineHosts || 0} dispositivi online su ${res.scannedHosts || 0} host.`);
     } finally {
       setAssetScanBusy(false);
     }
@@ -6095,8 +6304,8 @@ function App() {
             <div className="view">
               <div className="view-header">
                 <div>
-                  <h2 className="view-title">{mi('lan')} Asset Scanner</h2>
-                  <p className="view-sub">Inventario dispositivi attivi nella tua rete locale (solo subnet selezionata).</p>
+                  <h2 className="view-title">{mi('lan')} Asset Scanner Pro</h2>
+                  <p className="view-sub">Scanner enterprise-style con profili, tuning avanzato, port scan configurabile e export.</p>
                 </div>
               </div>
 
@@ -6113,26 +6322,125 @@ function App() {
                       ))}
                     </select>
                   </div>
-                  <button className="btn-secondary" onClick={loadNetworkInterfaces} disabled={assetScanBusy}>{mi('refresh')} Rileva reti</button>
+                  <div className="form-group fg-1">
+                    <label>Profilo</label>
+                    <select value={assetProfileName} onChange={(e) => applyAssetProfile(e.target.value)}>
+                      {Object.keys(assetProfiles).map((name) => <option key={name} value={name}>{name}</option>)}
+                    </select>
+                  </div>
+                  <button className="btn-secondary" onClick={loadNetworkInterfaces} disabled={assetScanBusy}>{mi('refresh')} Interfacce</button>
                   <button className="btn-primary" onClick={runAssetScan} disabled={assetScanBusy || !selectedNetworkCidr}>
-                    {assetScanBusy ? <>{mi('hourglass_top')} Scansione...</> : <>{mi('search')} Scansiona</>}
+                    {assetScanBusy ? <>{mi('hourglass_top')} Scansione...</> : <>{mi('radar')} Avvia scan</>}
                   </button>
                 </div>
+
+                <div className="form-row ai-c mt-16">
+                  <div className="form-group fg-2">
+                    <label>Nome nuovo profilo</label>
+                    <input value={assetProfileDraftName} onChange={(e) => setAssetProfileDraftName(e.target.value)} placeholder="Es. Aggressive Discovery" />
+                  </div>
+                  <button className="btn-secondary" onClick={saveCurrentAsProfile}>{mi('save')} Salva profilo</button>
+                  <button className="btn-danger" onClick={deleteCurrentProfile}>{mi('delete')} Elimina profilo</button>
+                </div>
+
+                <div className="form-row ai-c mt-16">
+                  <div className="form-group fg-1">
+                    <label>Timeout ping (ms)</label>
+                    <input
+                      type="number"
+                      min={100}
+                      max={3000}
+                      value={assetScanOptions.pingTimeoutMs}
+                      onChange={(e) => setAssetScanOptions((prev) => ({ ...prev, pingTimeoutMs: Number(e.target.value) || 260 }))}
+                    />
+                  </div>
+                  <div className="form-group fg-1">
+                    <label>Concorrenza</label>
+                    <input
+                      type="number"
+                      min={4}
+                      max={128}
+                      value={assetScanOptions.concurrency}
+                      onChange={(e) => setAssetScanOptions((prev) => ({ ...prev, concurrency: Number(e.target.value) || 32 }))}
+                    />
+                  </div>
+                  <div className="form-group fg-1">
+                    <label>Max host scan</label>
+                    <input
+                      type="number"
+                      min={16}
+                      max={4096}
+                      value={assetScanOptions.maxHosts}
+                      onChange={(e) => setAssetScanOptions((prev) => ({ ...prev, maxHosts: Number(e.target.value) || 1024 }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row ai-c mt-16">
+                  <label className="mini-task"><input type="checkbox" checked={assetScanOptions.methods.ping} onChange={(e) => setAssetScanOptions((p) => ({ ...p, methods: { ...p.methods, ping: e.target.checked } }))} /> Ping</label>
+                  <label className="mini-task"><input type="checkbox" checked={assetScanOptions.methods.arp} onChange={(e) => setAssetScanOptions((p) => ({ ...p, methods: { ...p.methods, arp: e.target.checked } }))} /> ARP</label>
+                  <label className="mini-task"><input type="checkbox" checked={assetScanOptions.methods.dns} onChange={(e) => setAssetScanOptions((p) => ({ ...p, methods: { ...p.methods, dns: e.target.checked } }))} /> DNS reverse</label>
+                  <label className="mini-task"><input type="checkbox" checked={assetScanOptions.includeArpOnly} onChange={(e) => setAssetScanOptions((p) => ({ ...p, includeArpOnly: e.target.checked }))} /> Includi ARP-only</label>
+                  <label className="mini-task"><input type="checkbox" checked={assetScanOptions.portScan.enabled} onChange={(e) => setAssetScanOptions((p) => ({ ...p, portScan: { ...p.portScan, enabled: e.target.checked } }))} /> Port scan</label>
+                </div>
+
+                <div className="form-row ai-c mt-16">
+                  <div className="form-group fg-2">
+                    <label>Porte da scansionare (CSV)</label>
+                    <input
+                      value={assetPortList}
+                      onChange={(e) => setAssetPortList(e.target.value)}
+                      placeholder="22,80,135,139,443,445,3389"
+                      disabled={!assetScanOptions.portScan.enabled}
+                    />
+                  </div>
+                  <div className="form-group fg-1">
+                    <label>Timeout porta (ms)</label>
+                    <input
+                      type="number"
+                      min={120}
+                      max={4000}
+                      value={assetScanOptions.portScan.timeoutMs}
+                      onChange={(e) => setAssetScanOptions((p) => ({ ...p, portScan: { ...p.portScan, timeoutMs: Number(e.target.value) || 450 } }))}
+                      disabled={!assetScanOptions.portScan.enabled}
+                    />
+                  </div>
+                </div>
+
                 <p className="empty" style={{ marginTop: 10 }}>
-                  Usa solo su reti autorizzate. La scansione esegue ping e ARP nella subnet selezionata.
+                  Usa solo su reti autorizzate. Questa funzione e pensata per discovery interna e inventory operativo.
                 </p>
               </div>
 
               <div className="card">
                 <div className="view-header" style={{ marginBottom: 12 }}>
                   <h3 style={{ margin: 0 }}>Dispositivi rilevati</h3>
-                  <span className="badge">
-                    {(assetScanResult?.onlineHosts ?? 0)} online / {(assetScanResult?.scannedHosts ?? 0)} host
-                  </span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <span className="badge">{(assetScanResult?.onlineHosts ?? 0)} online / {(assetScanResult?.scannedHosts ?? 0)} host</span>
+                    <button className="btn-secondary btn-sm" onClick={exportAssetCsv}>{mi('download')} CSV</button>
+                    <button className="btn-secondary btn-sm" onClick={exportAssetJson}>{mi('data_object')} JSON</button>
+                  </div>
                 </div>
+
+                <div className="form-row ai-c mb-12">
+                  <div className="form-group fg-2">
+                    <label>Ricerca</label>
+                    <input value={assetSearch} onChange={(e) => setAssetSearch(e.target.value)} placeholder="IP, hostname, MAC, OS, porta..." />
+                  </div>
+                  <div className="form-group fg-1">
+                    <label>Ordina per</label>
+                    <select value={assetSortBy} onChange={(e) => setAssetSortBy(e.target.value as 'ip' | 'hostname' | 'responseMs')}>
+                      <option value="ip">IP</option>
+                      <option value="hostname">Hostname</option>
+                      <option value="responseMs">Response time</option>
+                    </select>
+                  </div>
+                  <label className="mini-task"><input type="checkbox" checked={assetOnlyOpenPorts} onChange={(e) => setAssetOnlyOpenPorts(e.target.checked)} /> Solo host con porte aperte</label>
+                </div>
+
                 {assetScanResult?.error && <p className="empty" style={{ color: '#b91c1c' }}>{assetScanResult.error}</p>}
-                {!assetScanResult?.devices?.length && !assetScanResult?.error && <p className="empty">Nessun risultato. Avvia una scansione.</p>}
-                {assetScanResult?.devices && assetScanResult.devices.length > 0 && (
+                {!assetVisibleDevices.length && !assetScanResult?.error && <p className="empty">Nessun risultato. Avvia una scansione.</p>}
+                {assetVisibleDevices.length > 0 && (
                   <div className="table-wrap">
                     <table>
                       <thead>
@@ -6140,15 +6448,23 @@ function App() {
                           <th>IP</th>
                           <th>Hostname</th>
                           <th>MAC</th>
+                          <th>OS (stima)</th>
+                          <th>TTL</th>
+                          <th>Response</th>
+                          <th>Porte aperte</th>
                           <th>Fonte</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {assetScanResult.devices.map((d) => (
+                        {assetVisibleDevices.map((d) => (
                           <tr key={d.ip}>
                             <td><strong>{d.ip}</strong></td>
                             <td>{d.hostname || '-'}</td>
                             <td>{d.mac || '-'}</td>
+                            <td>{d.osGuess || '-'}</td>
+                            <td>{d.ttl ?? '-'}</td>
+                            <td>{d.responseMs != null ? `${d.responseMs} ms` : '-'}</td>
+                            <td>{(d.openPorts || []).length ? d.openPorts?.join(', ') : '-'}</td>
                             <td>{d.source || '-'}</td>
                           </tr>
                         ))}
@@ -6158,7 +6474,9 @@ function App() {
                 )}
                 {assetScanResult?.scannedAt && (
                   <p className="empty" style={{ marginTop: 10 }}>
-                    Ultima scansione: {new Date(assetScanResult.scannedAt).toLocaleString('it-IT')} ({assetScanResult.cidr})
+                    Ultima scansione: {new Date(assetScanResult.scannedAt).toLocaleString('it-IT')} ({assetScanResult.cidr}) -
+                    Metodi: Ping {assetScanResult.methodsUsed?.ping ? 'ON' : 'OFF'}, ARP {assetScanResult.methodsUsed?.arp ? 'ON' : 'OFF'},
+                    DNS {assetScanResult.methodsUsed?.dns ? 'ON' : 'OFF'}, PortScan {assetScanResult.methodsUsed?.portScan ? 'ON' : 'OFF'}
                   </p>
                 )}
               </div>

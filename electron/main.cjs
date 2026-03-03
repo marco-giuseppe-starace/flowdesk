@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const dns = require('node:dns').promises;
 const { spawn } = require('node:child_process');
+const net = require('node:net');
 const { initDb, closeDb, getDbPath, repo } = require('./db.cjs');
 const { parseMsapp, diffApps } = require('./msapp-parser.cjs');
 const msal = require('@azure/msal-node');
@@ -542,15 +543,38 @@ function hostsFromCidr(cidr) {
   return hosts;
 }
 
-async function pingHost(ip) {
+function parseTtlFromPingOutput(stdout) {
+  const m = String(stdout || '').match(/ttl[=\s:](\d{1,3})/i);
+  if (!m) return null;
+  const ttl = Number(m[1]);
+  return Number.isFinite(ttl) ? ttl : null;
+}
+
+function guessOsFromTtl(ttl) {
+  if (!Number.isFinite(ttl)) return '';
+  if (ttl >= 120) return 'Windows/Network Device';
+  if (ttl >= 60) return 'Linux/Unix';
+  if (ttl > 0) return 'Embedded/IoT';
+  return '';
+}
+
+async function pingHost(ip, pingTimeoutMs = 260) {
+  const startedAt = Date.now();
+  const timeoutArg = Math.max(100, Math.min(3000, Number(pingTimeoutMs) || 260));
   const args = process.platform === 'win32'
-    ? ['-n', '1', '-w', '260', ip]
+    ? ['-n', '1', '-w', String(timeoutArg), ip]
     : ['-c', '1', '-W', '1', ip];
   try {
-    const res = await runCommand('ping', args, 3500);
-    return res.code === 0;
+    const res = await runCommand('ping', args, Math.max(3500, timeoutArg + 1200));
+    const ttl = parseTtlFromPingOutput(res.stdout);
+    return {
+      alive: res.code === 0,
+      ttl,
+      osGuess: guessOsFromTtl(ttl),
+      responseMs: Date.now() - startedAt,
+    };
   } catch {
-    return false;
+    return { alive: false, ttl: null, osGuess: '', responseMs: Date.now() - startedAt };
   }
 }
 
@@ -570,6 +594,16 @@ async function poolMap(items, worker, concurrency = 32) {
   });
   await Promise.all(workers);
   return results;
+}
+
+function uniqueSortedPorts(ports) {
+  const out = [];
+  for (const p of Array.isArray(ports) ? ports : []) {
+    const n = Number(p);
+    if (!Number.isInteger(n) || n < 1 || n > 65535) continue;
+    if (!out.includes(n)) out.push(n);
+  }
+  return out.sort((a, b) => a - b);
 }
 
 function parseArpTable(raw) {
@@ -607,31 +641,180 @@ async function reverseLookup(ip) {
   }
 }
 
-async function scanLocalNetwork(cidrInput) {
+function isIpInCidr(ip, cidr) {
+  const m = String(cidr || '').trim().match(/^(\d{1,3}(?:\.\d{1,3}){3})\/(\d{1,2})$/);
+  if (!m) return false;
+  const baseInt = ipv4ToInt(m[1]);
+  const ipInt = ipv4ToInt(ip);
+  const prefix = Number(m[2]);
+  if (baseInt == null || ipInt == null || prefix < 1 || prefix > 32) return false;
+  const mask = prefix === 32 ? 0xffffffff : ((0xffffffff << (32 - prefix)) >>> 0);
+  return (baseInt & mask) === (ipInt & mask);
+}
+
+function tryParsePorts(input) {
+  if (Array.isArray(input)) return uniqueSortedPorts(input);
+  const text = String(input || '').trim();
+  if (!text) return [];
+  return uniqueSortedPorts(text.split(/[,\s;]+/).filter(Boolean));
+}
+
+function socketProbe(ip, port, timeoutMs = 450) {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    let settled = false;
+    const finalize = (open) => {
+      if (settled) return;
+      settled = true;
+      try { socket.destroy(); } catch {}
+      resolve(open);
+    };
+    socket.setTimeout(Math.max(120, Math.min(3000, Number(timeoutMs) || 450)));
+    socket.once('connect', () => finalize(true));
+    socket.once('timeout', () => finalize(false));
+    socket.once('error', () => finalize(false));
+    try {
+      socket.connect(port, ip);
+    } catch {
+      finalize(false);
+    }
+  });
+}
+
+async function scanPortsForHost(ip, ports, timeoutMs = 450) {
+  if (!ports.length) return [];
+  const checks = ports.map(async (p) => ({ port: p, open: await socketProbe(ip, p, timeoutMs) }));
+  const scanned = await Promise.all(checks);
+  return scanned.filter((x) => x.open).map((x) => x.port);
+}
+
+async function scanLocalNetwork(cidrInput, optionsInput = {}) {
   const available = listLocalScanNetworks();
   if (available.length === 0) return { ok: false, error: 'Nessuna interfaccia IPv4 locale trovata.' };
+
+  const options = optionsInput && typeof optionsInput === 'object' ? optionsInput : {};
+  const methods = options.methods && typeof options.methods === 'object' ? options.methods : {};
+  const enablePing = methods.ping !== false;
+  const enableArp = methods.arp !== false;
+  const enableDns = methods.dns !== false;
+  const enablePortScan = Boolean(options.portScan?.enabled);
+  const configuredPorts = tryParsePorts(options.portScan?.ports);
+  const scanPorts = configuredPorts.length ? configuredPorts : [22, 80, 135, 139, 443, 445, 3389, 5985];
+
+  const pingTimeoutMs = Math.max(100, Math.min(3000, Number(options.pingTimeoutMs) || 260));
+  const portTimeoutMs = Math.max(120, Math.min(4000, Number(options.portScan?.timeoutMs) || 450));
+  const concurrency = Math.max(4, Math.min(128, Number(options.concurrency) || 32));
+  const includeArpOnly = Boolean(options.includeArpOnly);
+  const maxHosts = Math.max(16, Math.min(4096, Number(options.maxHosts) || 1024));
 
   const selectedCidr = String(cidrInput || '').trim() || available[0].cidr;
   const hosts = hostsFromCidr(selectedCidr);
   if (hosts.length === 0) {
     return { ok: false, error: 'Intervallo CIDR non valido o troppo ampio (max /22).' };
   }
+  if (hosts.length > maxHosts) {
+    return { ok: false, error: `Intervallo troppo ampio (${hosts.length} host). Limite corrente: ${maxHosts}.` };
+  }
 
-  const aliveFlags = await poolMap(hosts, (ip) => pingHost(ip), 32);
-  const aliveIps = hosts.filter((_, i) => Boolean(aliveFlags[i]));
-
-  const arpMap = await readArpTable();
-  const names = await poolMap(aliveIps, (ip) => reverseLookup(ip), 12);
-
-  const devices = aliveIps.map((ip, i) => {
-    const arp = arpMap.get(ip) || {};
-    return {
+  const devicesByIp = new Map();
+  for (const ip of hosts) {
+    devicesByIp.set(ip, {
       ip,
-      hostname: names[i] || '',
-      mac: arp.mac || '',
-      source: arp.arpType || 'ping',
-    };
-  });
+      hostname: '',
+      mac: '',
+      source: 'scan',
+      alive: false,
+      ttl: null,
+      osGuess: '',
+      responseMs: null,
+      openPorts: [],
+    });
+  }
+
+  let arpMap = new Map();
+  if (enableArp) {
+    arpMap = await readArpTable();
+    for (const [ip, arp] of arpMap.entries()) {
+      if (!isIpInCidr(ip, selectedCidr)) continue;
+      if (!devicesByIp.has(ip)) {
+        devicesByIp.set(ip, {
+          ip,
+          hostname: '',
+          mac: '',
+          source: 'arp',
+          alive: false,
+          ttl: null,
+          osGuess: '',
+          responseMs: null,
+          openPorts: [],
+        });
+      }
+      const d = devicesByIp.get(ip);
+      d.mac = arp.mac || d.mac || '';
+      d.source = 'arp';
+    }
+  }
+
+  const pingTargets = [...devicesByIp.values()].map((d) => d.ip);
+  if (enablePing) {
+    const pingResults = await poolMap(pingTargets, (ip) => pingHost(ip, pingTimeoutMs), concurrency);
+    for (let i = 0; i < pingTargets.length; i += 1) {
+      const ip = pingTargets[i];
+      const p = pingResults[i];
+      if (!p) continue;
+      const d = devicesByIp.get(ip);
+      if (!d) continue;
+      d.alive = Boolean(p.alive);
+      d.ttl = p.ttl ?? null;
+      d.osGuess = p.osGuess || '';
+      d.responseMs = p.responseMs ?? null;
+      if (d.alive && d.source !== 'arp') d.source = 'ping';
+    }
+  }
+
+  if (enableArp) {
+    arpMap = await readArpTable();
+    for (const [ip, arp] of arpMap.entries()) {
+      if (!isIpInCidr(ip, selectedCidr)) continue;
+      if (!devicesByIp.has(ip)) continue;
+      const d = devicesByIp.get(ip);
+      d.mac = arp.mac || d.mac || '';
+      if (!d.alive && includeArpOnly) d.alive = true;
+      if (d.source !== 'ping') d.source = arp.arpType || 'arp';
+    }
+  }
+
+  const aliveDevices = [...devicesByIp.values()].filter((d) => d.alive);
+
+  if (enableDns && aliveDevices.length > 0) {
+    const names = await poolMap(aliveDevices.map((d) => d.ip), (ip) => reverseLookup(ip), 20);
+    for (let i = 0; i < aliveDevices.length; i += 1) {
+      aliveDevices[i].hostname = names[i] || '';
+    }
+  }
+
+  if (enablePortScan && scanPorts.length > 0 && aliveDevices.length > 0) {
+    const portsPerHost = await poolMap(
+      aliveDevices.map((d) => d.ip),
+      (ip) => scanPortsForHost(ip, scanPorts, portTimeoutMs),
+      Math.max(4, Math.min(64, Math.floor(concurrency / 2) || 8)),
+    );
+    for (let i = 0; i < aliveDevices.length; i += 1) {
+      aliveDevices[i].openPorts = portsPerHost[i] || [];
+    }
+  }
+
+  const devices = aliveDevices.map((d) => ({
+    ip: d.ip,
+    hostname: d.hostname || '',
+    mac: d.mac || '',
+    source: d.source || 'scan',
+    alive: d.alive,
+    ttl: d.ttl,
+    osGuess: d.osGuess || '',
+    responseMs: d.responseMs,
+    openPorts: d.openPorts || [],
+  }));
 
   devices.sort((a, b) => {
     const ai = ipv4ToInt(a.ip) || 0;
@@ -644,6 +827,13 @@ async function scanLocalNetwork(cidrInput) {
     cidr: selectedCidr,
     scannedHosts: hosts.length,
     onlineHosts: devices.length,
+    methodsUsed: {
+      ping: enablePing,
+      arp: enableArp,
+      dns: enableDns,
+      portScan: enablePortScan,
+    },
+    portsScanned: enablePortScan ? scanPorts : [],
     scannedAt: new Date().toISOString(),
     devices,
   };
@@ -1237,7 +1427,11 @@ function registerIpcHandlers() {
   ipcMain.handle('db:getFolder', () => path.dirname(getDbPath()));
   ipcMain.handle('db:existedAtStartup', () => dbExistedAtStartup);
   ipcMain.handle('network:listInterfaces', () => listLocalScanNetworks());
-  ipcMain.handle('network:scan', async (_, cidr) => scanLocalNetwork(cidr));
+  ipcMain.handle('network:scan', async (_, cidr, options) => scanLocalNetwork(cidr, options));
+  ipcMain.handle('network:scanPro', async (_, payload = {}) => {
+    const cidr = payload && typeof payload === 'object' ? payload.cidr : '';
+    return scanLocalNetwork(cidr, payload?.options || {});
+  });
 
   /* App info */
   ipcMain.handle('app:getVersion', () => app.getVersion());
