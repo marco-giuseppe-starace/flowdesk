@@ -7,7 +7,7 @@
 
 Desktop app offline-first per produttivita su Microsoft Power Platform.
 
-- Versione corrente: `1.0.0`
+- Versione corrente: `1.0.1`
 - Stack: Electron + React + TypeScript + SQLite (`better-sqlite3`)
 - Target: Windows (`Setup` + `Portable`)
 
@@ -26,13 +26,15 @@ FlowDesk unifica in una sola app:
 - inventario rete locale (`Asset Scanner`)
 - update checker e auto-update (quando supportato)
 
-## Novita principali in v1.0.0
+## Novita principali in v1.0.1
 
 - packaging Windows doppio: installer + portable
 - update checker con stato live e azioni in-app
 - AI Hub e M365 Hub con finestra tab condivisa
 - SharePoint hub con login Microsoft e operazioni su liste/documenti
-- Asset Scanner LAN (ping + ARP) su subnet locale selezionata
+- Asset Scanner Pro con profili salvabili, filtri, ordinamento e export CSV/JSON
+- Metodi scan configurabili (ping, ARP, DNS reverse, port scan)
+- Parametri avanzati enterprise (timeout, concurrency, max host, porte custom)
 
 ## Installazione
 
